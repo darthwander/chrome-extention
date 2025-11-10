@@ -7,10 +7,45 @@
   cursor: pointer;
   font-size: 12px;
   color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .azdo-tt-btn:hover {
   background: #eff6ff;
+}
+
+.azdo-tt-btn-running {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.azdo-tt-btn-running:hover {
+  background: #fee2e2;
+}
+
+.azdo-tt-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.azdo-tt-btn-loading {
+  cursor: progress;
+}
+
+.azdo-tt-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.azdo-tt-icon-play {
+  color: #16a34a;
+}
+
+.azdo-tt-icon-stop {
+  color: #dc2626;
 }
 
 
