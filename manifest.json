@@ -25,6 +25,6 @@
   ],
   "action": {
     "default_title": "Azure DevOps Time Tracker",
-    "default_popup": "options.html"
+    "default_popup": "popup.html"
   }
 }
