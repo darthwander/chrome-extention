@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Azure DevOps Time Tracker",
+  "name": "Time Tracker (Azure DevOps + GLPI)",
   "version": "1.0.0",
-  "description": "Inicia/encerra tracking de tempo a partir do modal de Work Item no Azure DevOps.",
+  "description": "Inicia/encerra tracking de tempo no Azure DevOps ou GLPI direto da tela do item.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "https://dev.azure.com/*",
-    "https://*.visualstudio.com/*"
+    "https://*.visualstudio.com/*",
+    "*://*/front/ticket.form.php*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -17,7 +18,8 @@
     {
       "matches": [
         "https://dev.azure.com/*",
-        "https://*.visualstudio.com/*"
+        "https://*.visualstudio.com/*",
+        "*://*/front/ticket.form.php*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
@@ -25,7 +27,7 @@
     }
   ],
   "action": {
-    "default_title": "Azure DevOps Time Tracker",
+    "default_title": "Time Tracker (Azure DevOps + GLPI)",
     "default_popup": "popup.html"
   }
 }

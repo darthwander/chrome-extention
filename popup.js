@@ -194,7 +194,7 @@ exportBtn.addEventListener('click', () => {
       showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
       return;
     }
-    download(`azdo-time-tracker-${Date.now()}.csv`, res.csv);
+    download(`time-tracker-${Date.now()}.csv`, res.csv);
   });
 });
 

@@ -76,7 +76,7 @@ async function load() {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.className = 'link-button';
-        link.textContent = 'Abrir no Azure';
+        link.textContent = 'Abrir item';
         actionsTd.appendChild(link);
       } else {
         actionsTd.textContent = '—';
@@ -107,7 +107,7 @@ function download(filename, content) {
 document.getElementById('export').addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'exportCsv' }, (res) => {
     if (!res?.ok) return;
-    download(`azdo-time-tracker-${Date.now()}.csv`, res.csv);
+    download(`time-tracker-${Date.now()}.csv`, res.csv);
   });
 });
 
