@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azure DevOps — Time Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              azure: {
+                50: '#F5FBFF',
+                100: '#E6F4FF',
+                500: '#0078D4',
+                600: '#005EA6',
+                700: '#004276'
+              }
+            }
+          }
+        }
+      };
+    </script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
+  </head>
+  <body class="bg-slate-100">
+    <div id="root" class="min-h-screen flex items-center justify-center p-4"></div>
+    <script type="text/babel">
+      const { useState, useEffect, useRef } = React;
+
+      const mockTask = {
+        id: 4523,
+        title: 'Endpoint de SVA (partnerSale)',
+        startDate: '10/11/2025, 09:58:09',
+        project: 'Azure DevOps — Time Tracker'
+      };
+
+      function AzureDevOpsTimeTracker() {
+        const [task] = useState(mockTask);
+        const [isMenuOpen, setIsMenuOpen] = useState(false);
+        const menuRef = useRef(null);
+
+        useEffect(() => {
+          function handleClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+              setIsMenuOpen(false);
+            }
+          }
+
+          document.addEventListener('mousedown', handleClickOutside);
+          return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, []);
+
+        const toggleMenu = () => setIsMenuOpen((prev) => !prev);
+
+        const handleStopExecution = () => {
+          console.log('Parar execução acionado para a tarefa', task.id);
+        };
+
+        const handleAction = (action) => {
+          console.log(`Ação selecionada: ${action}`);
+          setIsMenuOpen(false);
+        };
+
+        return (
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <header className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Azure DevOps — Time Tracker
+                </p>
+                <h1 className="text-2xl font-semibold text-slate-900">Tarefa em execução</h1>
+              </div>
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={toggleMenu}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-azure-100 hover:bg-azure-50 hover:text-azure-600 focus:outline-none focus:ring-2 focus:ring-azure-500"
+                  aria-label="Abrir menu de ações"
+                >
+                  ⋮
+                </button>
+                {isMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-52 origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-azure-50 hover:text-azure-700"
+                      onClick={() => handleAction('Atualizar')}
+                    >
+                      <span className="text-lg">🔄</span>
+                      Atualizar
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-azure-50 hover:text-azure-700"
+                      onClick={() => handleAction('Exportar CSV')}
+                    >
+                      <span className="text-lg">📤</span>
+                      Exportar CSV
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-azure-50 hover:text-azure-700"
+                      onClick={() => handleAction('Limpar Logs')}
+                    >
+                      <span className="text-lg">🧹</span>
+                      Limpar Logs
+                    </button>
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-azure-50 hover:text-azure-700"
+                      onClick={() => handleAction('Abrir lista em nova aba')}
+                    >
+                      <span className="text-lg">🗂️</span>
+                      Abrir lista em nova aba
+                    </button>
+                  </div>
+                )}
+              </div>
+            </header>
+
+            <section className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-azure-600">
+                  #{task.id} — {task.title}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Iniciado em {task.startDate}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Projeto: {task.project}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleStopExecution}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
+              >
+                <span className="text-lg">⏹️</span>
+                Parar Execução
+              </button>
+            </section>
+
+            <footer className="mt-6 text-center text-xs text-slate-400">
+              Logs e ações adicionais disponíveis no menu.
+            </footer>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<AzureDevOpsTimeTracker />);
+    </script>
+  </body>
+</html>
