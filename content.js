@@ -1,5 +1,6 @@
 (function () {
   const BUTTON_ID = "azdo-time-tracker-btn";
+  const TOAST_CONTAINER_ID = "azdo-tt-toast-container";
 
   const observer = new MutationObserver(() => {
     tryInject();
@@ -89,12 +90,24 @@
     return '';
   }
 
+  function ensureToastContainer() {
+    let container = document.getElementById(TOAST_CONTAINER_ID);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = TOAST_CONTAINER_ID;
+      container.className = 'azdo-tt-toast-container';
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+
   function toast(message, isError = false) {
-    let el = document.createElement('div');
+    const container = ensureToastContainer();
+    const el = document.createElement('div');
     el.className = 'azdo-tt-toast' + (isError ? ' azdo-tt-toast-error' : '');
     el.textContent = message;
-    document.body.appendChild(el);
-    setTimeout(() => el.classList.add('show'), 10);
+    container.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
     setTimeout(() => {
       el.classList.remove('show');
       setTimeout(() => el.remove(), 300);
