@@ -75,12 +75,30 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           tempLogs.push({ ...current, endedAt: nowISO() });
         }
 
-        const header = ["id", "title", "url", "startedAt", "endedAt", "durationSeconds"];
+        const header = [
+          "id",
+          "title",
+          "url",
+          "projectName",
+          "captureType",
+          "startedAt",
+          "endedAt",
+          "durationSeconds",
+        ];
         const rows = tempLogs.map((l) => {
           const start = new Date(l.startedAt);
           const end = new Date(l.endedAt);
           const dur = Math.max(0, Math.round((end - start) / 1000));
-          return [l.id, escapeCsv(l.title), l.url, l.startedAt, l.endedAt, dur].join(",");
+          return [
+            l.id,
+            escapeCsv(l.title),
+            l.url,
+            escapeCsv(l.projectName || ""),
+            escapeCsv(l.captureType || ""),
+            l.startedAt,
+            l.endedAt,
+            dur,
+          ].join(",");
         });
 
         const csv = [header.join(","), ...rows].join("\n");

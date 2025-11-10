@@ -49,6 +49,14 @@ async function load() {
       titleTd.textContent = r.title;
       tr.appendChild(titleTd);
 
+      const projectTd = document.createElement('td');
+      projectTd.textContent = r.projectName || '-';
+      tr.appendChild(projectTd);
+
+      const captureTypeTd = document.createElement('td');
+      captureTypeTd.textContent = r.captureType || '-';
+      tr.appendChild(captureTypeTd);
+
       const startTd = document.createElement('td');
       startTd.textContent = fmtDate(r.startedAt);
       tr.appendChild(startTd);
