@@ -18,7 +18,57 @@ body {
 }
 
 .header {
+  position: relative;
   text-align: center;
+  padding-right: 44px;
+}
+
+.actions-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.icon-button {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.icon-button:hover,
+.icon-button:focus {
+  background: rgba(148, 163, 184, 0.2);
+  outline: none;
+}
+
+.icon-bar {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: #0f172a;
+  border-radius: 999px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .title {
@@ -62,23 +112,11 @@ body {
   color: #dc2626;
 }
 
-.actions {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.actions-toggle {
-  width: 100%;
-}
-
 .actions-menu {
   position: absolute;
-  top: 100%;
-  left: 0;
+  top: calc(100% + 8px);
   right: 0;
-  margin-top: 8px;
+  margin-top: 0;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
@@ -86,6 +124,7 @@ body {
   display: flex;
   flex-direction: column;
   z-index: 10;
+  min-width: 180px;
 }
 
 .menu-item {
