@@ -12,6 +12,7 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "options_page": "options.html",
   "content_scripts": [
     {
       "matches": [
