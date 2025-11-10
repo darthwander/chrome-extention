@@ -32,17 +32,20 @@ async function load() {
 
     const rows = [...logs];
     if (current && !current.endedAt) {
-      rows.push({ ...current, endedAt: new Date().toISOString() });
+      rows.push({ ...current });
     }
 
     for (const r of rows) {
       const tr = document.createElement('tr');
+      const isRunning = !r.endedAt;
+      const endLabel = isRunning ? 'EM ANDAMENTO' : fmtDate(r.endedAt);
+      const durationLabel = isRunning ? '-' : durationSeconds(r.startedAt, r.endedAt);
       tr.innerHTML = `
         <td>${r.id}</td>
         <td>${r.title}</td>
         <td>${fmtDate(r.startedAt)}</td>
-        <td>${fmtDate(r.endedAt)}</td>
-        <td>${durationSeconds(r.startedAt, r.endedAt)}</td>
+        <td>${endLabel}</td>
+        <td>${durationLabel}</td>
       `;
       tbody.appendChild(tr);
     }
