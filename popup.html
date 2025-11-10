@@ -9,6 +9,28 @@
   <body>
     <main class="container">
       <header class="header">
+        <div class="actions-container">
+          <button
+            id="actions-toggle"
+            type="button"
+            class="icon-button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="actions-menu"
+            aria-label="Abrir menu de ações"
+          >
+            <span class="sr-only">Abrir menu de ações</span>
+            <span aria-hidden="true" class="icon-bar"></span>
+            <span aria-hidden="true" class="icon-bar"></span>
+            <span aria-hidden="true" class="icon-bar"></span>
+          </button>
+          <div id="actions-menu" class="actions-menu hidden" role="menu" aria-hidden="true">
+            <button id="refresh" type="button" class="menu-item" role="menuitem">Atualizar</button>
+            <button id="export" type="button" class="menu-item" role="menuitem">Exportar XLSX</button>
+            <button id="clear" type="button" class="menu-item" role="menuitem">Limpar Logs</button>
+            <button id="open-logs" type="button" class="menu-item" role="menuitem">Abrir lista completa</button>
+          </div>
+        </div>
         <h1 class="title">Azure DevOps — Time Tracker</h1>
         <p class="subtitle">Acompanhe o status atual do rastreamento.</p>
       </header>
@@ -18,28 +40,6 @@
         <p id="status" class="status-text">Carregando…</p>
         <div class="status-actions">
           <button id="stop" type="button" class="btn btn-danger hidden">Encerrar tarefa atual</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2 class="card-title">Ações</h2>
-        <div class="actions">
-          <button
-            id="actions-toggle"
-            type="button"
-            class="btn actions-toggle"
-            aria-haspopup="true"
-            aria-expanded="false"
-            aria-controls="actions-menu"
-          >
-            Abrir menu de ações
-          </button>
-          <div id="actions-menu" class="actions-menu hidden" role="menu" aria-hidden="true">
-            <button id="refresh" type="button" class="menu-item" role="menuitem">Atualizar</button>
-            <button id="export" type="button" class="menu-item" role="menuitem">Exportar XLSX</button>
-            <button id="clear" type="button" class="menu-item" role="menuitem">Limpar Logs</button>
-            <button id="open-logs" type="button" class="menu-item" role="menuitem">Abrir lista completa</button>
-          </div>
         </div>
       </section>
 
