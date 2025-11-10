@@ -33,17 +33,17 @@
   function onClick() {
     const item = extractWorkItem();
     if (!item) {
-      toast('Não foi possível identificar o Work Item.', true);
+      toast('Não foi possível identificar o Work Item.', 'error');
       return;
     }
 
     chrome.runtime.sendMessage({ type: 'startOrStopForItem', item }, (res) => {
       if (!res?.ok) {
-        toast('Erro: ' + (res?.error || 'desconhecido'), true);
+        toast('Erro: ' + (res?.error || 'desconhecido'), 'error');
         return;
       }
-      if (res.action === 'started') toast(`Iniciado: #${item.id} — ${item.title}`);
-      if (res.action === 'stopped') toast(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`);
+      if (res.action === 'started') toast(`Iniciado: #${item.id} — ${item.title}`, 'start');
+      if (res.action === 'stopped') toast(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`, 'stop');
     });
   }
 
@@ -101,10 +101,12 @@
     return container;
   }
 
-  function toast(message, isError = false) {
+  function toast(message, variant = 'default') {
     const container = ensureToastContainer();
     const el = document.createElement('div');
-    el.className = 'azdo-tt-toast' + (isError ? ' azdo-tt-toast-error' : '');
+    const classes = ['azdo-tt-toast'];
+    if (variant && variant !== 'default') classes.push(`azdo-tt-toast-${variant}`);
+    el.className = classes.join(' ');
     el.textContent = message;
     container.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
