@@ -60,7 +60,33 @@
     const title = titleInput ? titleInput.value : '';
 
     if (!id || !title) return null;
-    return { id, title, url };
+
+    const projectName = extractProjectName(url);
+    const captureType = 'azure_devops';
+
+    return { id, title, url, projectName, captureType };
+  }
+
+  function extractProjectName(workItemUrl) {
+    if (!workItemUrl) return '';
+
+    try {
+      const url = new URL(workItemUrl);
+      const segments = url.pathname.split('/').filter(Boolean);
+      const workItemIndex = segments.indexOf('_workitems');
+      if (workItemIndex > 0) {
+        return decodeURIComponent(segments[workItemIndex - 1]);
+      }
+    } catch (error) {
+      console.warn('Failed to extract project name from URL', error);
+    }
+
+    const projectField = document.querySelector('input[id*="-Area-input"], input[id*="-Project-input"]');
+    if (projectField && projectField.value) {
+      return projectField.value.trim();
+    }
+
+    return '';
   }
 
   function toast(message, isError = false) {
