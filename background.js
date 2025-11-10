@@ -66,43 +66,36 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
       }
 
-      if (msg?.type === "exportCsv") {
-        const { [STORAGE_KEYS.LOGS]: logsRaw, [STORAGE_KEYS.CURRENT]: current } = await getStorage([STORAGE_KEYS.LOGS, STORAGE_KEYS.CURRENT]);
+      if (msg?.type === "getExportData") {
+        const { [STORAGE_KEYS.LOGS]: logsRaw, [STORAGE_KEYS.CURRENT]: current } = await getStorage([
+          STORAGE_KEYS.LOGS,
+          STORAGE_KEYS.CURRENT,
+        ]);
         const logs = logsRaw || [];
 
+        const exportedAt = nowISO();
         const tempLogs = [...logs];
         if (current && !current.endedAt) {
-          tempLogs.push({ ...current, endedAt: nowISO() });
+          tempLogs.push({ ...current, endedAt: exportedAt });
         }
 
-        const header = [
-          "id",
-          "title",
-          "url",
-          "projectName",
-          "captureType",
-          "startedAt",
-          "endedAt",
-          "durationSeconds",
-        ];
         const rows = tempLogs.map((l) => {
           const start = new Date(l.startedAt);
           const end = new Date(l.endedAt);
-          const dur = Math.max(0, Math.round((end - start) / 1000));
-          return [
-            l.id,
-            escapeCsv(l.title),
-            l.url,
-            escapeCsv(l.projectName || ""),
-            escapeCsv(l.captureType || ""),
-            l.startedAt,
-            l.endedAt,
-            dur,
-          ].join(",");
+          const durationSeconds = Math.max(0, Math.round((end - start) / 1000));
+          return {
+            id: l.id ?? "",
+            title: l.title ?? "",
+            url: l.url ?? "",
+            projectName: l.projectName ?? "",
+            captureType: l.captureType ?? "",
+            startedAt: l.startedAt ?? "",
+            endedAt: l.endedAt ?? "",
+            durationSeconds,
+          };
         });
 
-        const csv = [header.join(","), ...rows].join("\n");
-        sendResponse({ ok: true, csv });
+        sendResponse({ ok: true, rows, exportedAt });
         return;
       }
 
@@ -115,8 +108,3 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-function escapeCsv(text = "") {
-  const needsQuotes = /[",\n]/.test(text);
-  let t = String(text).replaceAll('"', '""');
-  return needsQuotes ? `"${t}"` : t;
-}

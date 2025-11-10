@@ -94,20 +94,30 @@ document.getElementById('clear').addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'clearLogs' }, () => load());
 });
 
-function download(filename, content) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+function normalizeExportRow(row) {
+  return {
+    id: row.id ?? '',
+    title: row.title ?? '',
+    projectName: row.projectName ?? '',
+    captureType: row.captureType ?? '',
+    startedAt: fmtDate(row.startedAt),
+    endedAt: fmtDate(row.endedAt),
+    durationSeconds:
+      typeof row.durationSeconds === 'number' && Number.isFinite(row.durationSeconds)
+        ? row.durationSeconds
+        : '',
+    url: row.url ?? '',
+  };
 }
 
 document.getElementById('export').addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'exportCsv' }, (res) => {
+  chrome.runtime.sendMessage({ type: 'getExportData' }, (res) => {
     if (!res?.ok) return;
-    download(`azdo-time-tracker-${Date.now()}.csv`, res.csv);
+    const exportedAt = res.exportedAt;
+    const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
+    const workbookBytes = ExcelExporter.buildXlsx(rows, exportedAt);
+    const filename = `azdo-time-tracker-${ExcelExporter.formatExportFileDate(exportedAt)}.xlsx`;
+    ExcelExporter.downloadXlsx(filename, workbookBytes);
   });
 });
 
