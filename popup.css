@@ -58,14 +58,6 @@ body {
   gap: 8px;
 }
 
-.task-indicator {
-  font-size: 18px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .status-text.error {
   color: #dc2626;
 }
@@ -194,6 +186,7 @@ body {
 .logs-item strong {
   display: block;
   color: #0f172a;
+  overflow-wrap: anywhere;
 }
 
 .logs-item .muted {
