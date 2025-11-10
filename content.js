@@ -113,17 +113,75 @@
   }
 
   function extractWorkItem() {
-    const idLink = document.querySelector('.work-item-form-header a[href*="/_workitems/edit/"]');
     let id = null;
     let url = null;
+
+    const idLink = document.querySelector('.work-item-form-header a[href*="/_workitems/edit/"]');
     if (idLink) {
-      const match = idLink.getAttribute('href').match(/\/edit\/(\d+)/);
+      const href = idLink.getAttribute('href') || '';
+      const match = href.match(/\/_workitems\/(?:edit|view)\/(\d+)/i);
       if (match) id = match[1];
-      url = new URL(idLink.getAttribute('href'), location.origin).href;
+      try {
+        url = new URL(href, location.origin).href;
+      } catch (error) {
+        url = href;
+      }
     }
 
-    const titleInput = document.querySelector('.work-item-title-textfield input');
-    const title = titleInput ? titleInput.value : '';
+    if (!id) {
+      const urlMatch = location.href.match(/\/_workitems\/(?:edit|view)\/(\d+)/i);
+      if (urlMatch) id = urlMatch[1];
+      url = location.href;
+    }
+
+    if (!id) {
+      const idField = document.querySelector('input[name="System.Id"], input[data-id="work-item-id"]');
+      const rawId = idField && ('value' in idField ? idField.value : idField.textContent);
+      if (rawId) id = rawId.trim();
+    }
+
+    if (id) {
+      const numericMatch = String(id).match(/\d+/);
+      id = numericMatch ? numericMatch[0] : String(id).trim();
+    }
+
+    if (!url) {
+      url = location.href;
+    }
+
+    const titleSelectors = [
+      '.work-item-title-textfield input',
+      '.work-item-title-textfield textarea',
+      '.work-item-title-textfield [role="textbox"]',
+      '[data-test-id="work-item-title-textfield"] input',
+      '[data-test-id="work-item-title-textfield"] textarea',
+      '[data-test-id="work-item-title-textfield"] [role="textbox"]',
+      '[data-test-id="editable-title"]',
+      '[data-test-id="work-item-header-title"]',
+      'input[aria-label="Title"]',
+      'textarea[aria-label="Title"]',
+      '[role="textbox"][aria-label="Title"]',
+      'input[aria-label="Título"]',
+      'textarea[aria-label="Título"]',
+      '[role="textbox"][aria-label="Título"]',
+      'input[name="System.Title"]',
+      'textarea[name="System.Title"]',
+    ];
+
+    let title = '';
+    for (const selector of titleSelectors) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      if ('value' in el && el.value) {
+        title = el.value.trim();
+        break;
+      }
+      const text = el.textContent;
+      if (text && text.trim()) {
+        title = text.trim();
+        break;
+      }
+    }
 
     if (!id || !title) return null;
 
