@@ -23,7 +23,6 @@
 
   function setButtonLoading(btn, loading) {
     if (!btn) return;
-    btn.disabled = Boolean(loading);
     btn.classList.toggle('azdo-tt-btn-loading', Boolean(loading));
   }
 
@@ -33,18 +32,15 @@
     const item = extractWorkItem();
     if (!item) {
       setButtonState(btn, 'idle');
-      btn.disabled = true;
       btn.title = 'Não foi possível identificar o Work Item atual.';
       return;
     }
 
-    btn.disabled = true;
     btn.removeAttribute('title');
     btn.dataset.itemId = String(item.id);
 
     chrome.runtime.sendMessage({ type: 'getStatus' }, (res) => {
       if (!btn || !document.body.contains(btn)) return;
-      btn.disabled = false;
 
       if (chrome.runtime.lastError || !res?.ok) {
         setButtonState(btn, 'idle');
