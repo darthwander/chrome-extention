@@ -38,6 +38,12 @@ function fmtDateTime(iso) {
   }
 }
 
+function truncate(text, maxLength) {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
+}
+
 function showStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle('error', isError);
@@ -57,8 +63,9 @@ function renderLogs(logs) {
     const li = document.createElement('li');
     li.className = 'logs-item';
     const endLabel = log.endedAt ? fmtDateTime(log.endedAt) : 'Em andamento';
+    const title = truncate(log.title || '', 42);
     li.innerHTML = `
-      <strong>#${log.id} — ${log.title}</strong>
+      <strong>#${log.id} — ${title}</strong>
       <span class="muted">${fmtDateTime(log.startedAt)} - ${endLabel}</span>
     `;
     logsEl.appendChild(li);
