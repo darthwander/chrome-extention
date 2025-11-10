@@ -1,7 +1,6 @@
 const statusEl = document.getElementById('status');
 const logsEl = document.getElementById('logs');
 const stopBtn = document.getElementById('stop');
-const taskIndicator = document.getElementById('task-indicator');
 const refreshBtn = document.getElementById('refresh');
 const exportBtn = document.getElementById('export');
 const clearBtn = document.getElementById('clear');
@@ -22,12 +21,18 @@ function fmtDate(iso) {
   }
 }
 
-function fmtDateOnly(iso) {
+function fmtDateTime(iso) {
   if (!iso) return '-';
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '-';
-    return d.toLocaleDateString();
+    const pad = (value) => String(value).padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = String(d.getFullYear()).slice(-2);
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   } catch (err) {
     return '-';
   }
@@ -51,10 +56,10 @@ function renderLogs(logs) {
   logs.slice(0, 3).forEach((log) => {
     const li = document.createElement('li');
     li.className = 'logs-item';
-    const endLabel = log.endedAt ? fmtDateOnly(log.endedAt) : 'Em andamento';
+    const endLabel = log.endedAt ? fmtDateTime(log.endedAt) : 'Em andamento';
     li.innerHTML = `
       <strong>#${log.id} — ${log.title}</strong>
-      <span class="muted">${fmtDateOnly(log.startedAt)} - ${endLabel}</span>
+      <span class="muted">${fmtDateTime(log.startedAt)} - ${endLabel}</span>
     `;
     logsEl.appendChild(li);
   });
@@ -95,11 +100,9 @@ function refresh() {
     if (currentTask && !currentTask.endedAt) {
       showStatus(`Em andamento: #${currentTask.id} — ${currentTask.title} (desde ${fmtDate(currentTask.startedAt)})`);
       stopBtn.classList.remove('hidden');
-      taskIndicator.classList.remove('hidden');
     } else {
       showStatus('Nenhuma tarefa em andamento.');
       stopBtn.classList.add('hidden');
-      taskIndicator.classList.add('hidden');
     }
 
     const displayLogs = [...logs];
