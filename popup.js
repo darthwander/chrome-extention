@@ -65,20 +65,26 @@ function renderLogs(logs) {
   });
 }
 
-function download(filename, content) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 function handleError(defaultMessage) {
   const err = chrome.runtime.lastError;
   const message = err ? err.message : defaultMessage;
   showStatus(`Erro: ${message || 'desconhecido'}`, true);
+}
+
+function normalizeExportRow(row) {
+  return {
+    id: row.id ?? '',
+    title: row.title ?? '',
+    projectName: row.projectName ?? '',
+    captureType: row.captureType ?? '',
+    startedAt: fmtDate(row.startedAt),
+    endedAt: fmtDate(row.endedAt),
+    durationSeconds:
+      typeof row.durationSeconds === 'number' && Number.isFinite(row.durationSeconds)
+        ? row.durationSeconds
+        : '',
+    url: row.url ?? '',
+  };
 }
 
 function refresh() {
@@ -178,16 +184,20 @@ refreshBtn.addEventListener('click', refresh);
 stopBtn.addEventListener('click', stopCurrentTask);
 
 exportBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'exportCsv' }, (res) => {
+  chrome.runtime.sendMessage({ type: 'getExportData' }, (res) => {
     if (chrome.runtime.lastError) {
-      handleError('Falha ao exportar CSV.');
+      handleError('Falha ao exportar XLSX.');
       return;
     }
     if (!res?.ok) {
       showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
       return;
     }
-    download(`azdo-time-tracker-${Date.now()}.csv`, res.csv);
+    const exportedAt = res.exportedAt;
+    const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
+    const workbookBytes = ExcelExporter.buildXlsx(rows, exportedAt);
+    const filename = `azdo-time-tracker-${ExcelExporter.formatExportFileDate(exportedAt)}.xlsx`;
+    ExcelExporter.downloadXlsx(filename, workbookBytes);
   });
 });
 
