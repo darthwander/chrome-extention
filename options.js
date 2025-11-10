@@ -40,13 +40,41 @@ async function load() {
       const isRunning = !r.endedAt;
       const endLabel = isRunning ? 'EM ANDAMENTO' : fmtDate(r.endedAt);
       const durationLabel = isRunning ? '-' : durationSeconds(r.startedAt, r.endedAt);
-      tr.innerHTML = `
-        <td>${r.id}</td>
-        <td>${r.title}</td>
-        <td>${fmtDate(r.startedAt)}</td>
-        <td>${endLabel}</td>
-        <td>${durationLabel}</td>
-      `;
+
+      const idTd = document.createElement('td');
+      idTd.textContent = r.id;
+      tr.appendChild(idTd);
+
+      const titleTd = document.createElement('td');
+      titleTd.textContent = r.title;
+      tr.appendChild(titleTd);
+
+      const startTd = document.createElement('td');
+      startTd.textContent = fmtDate(r.startedAt);
+      tr.appendChild(startTd);
+
+      const endTd = document.createElement('td');
+      endTd.textContent = endLabel;
+      tr.appendChild(endTd);
+
+      const durationTd = document.createElement('td');
+      durationTd.textContent = durationLabel;
+      tr.appendChild(durationTd);
+
+      const actionsTd = document.createElement('td');
+      if (r.url) {
+        const link = document.createElement('a');
+        link.href = r.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'link-button';
+        link.textContent = 'Abrir no Azure';
+        actionsTd.appendChild(link);
+      } else {
+        actionsTd.textContent = '—';
+      }
+      tr.appendChild(actionsTd);
+
       tbody.appendChild(tr);
     }
   });

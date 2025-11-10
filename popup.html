@@ -22,10 +22,22 @@
       <section class="card">
         <h2 class="card-title">Ações</h2>
         <div class="actions">
-          <button id="refresh" type="button" class="btn">Atualizar</button>
-          <button id="export" type="button" class="btn">Exportar CSV</button>
-          <button id="clear" type="button" class="btn btn-secondary">Limpar Logs</button>
-          <button id="open-logs" type="button" class="btn btn-link">Abrir lista completa</button>
+          <button
+            id="actions-toggle"
+            type="button"
+            class="btn actions-toggle"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="actions-menu"
+          >
+            Abrir menu de ações
+          </button>
+          <div id="actions-menu" class="actions-menu hidden" role="menu" aria-hidden="true">
+            <button id="refresh" type="button" class="menu-item" role="menuitem">Atualizar</button>
+            <button id="export" type="button" class="menu-item" role="menuitem">Exportar CSV</button>
+            <button id="clear" type="button" class="menu-item" role="menuitem">Limpar Logs</button>
+            <button id="open-logs" type="button" class="menu-item" role="menuitem">Abrir lista completa</button>
+          </div>
         </div>
       </section>
 

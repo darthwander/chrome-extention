@@ -5,6 +5,8 @@ const refreshBtn = document.getElementById('refresh');
 const exportBtn = document.getElementById('export');
 const clearBtn = document.getElementById('clear');
 const openLogsBtn = document.getElementById('open-logs');
+const actionsToggle = document.getElementById('actions-toggle');
+const actionsMenu = document.getElementById('actions-menu');
 
 let currentTask = null;
 
@@ -19,16 +21,15 @@ function fmtDate(iso) {
   }
 }
 
-function durationLabel(startIso, endIso) {
-  if (!startIso || !endIso) return '-';
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
-  const seconds = Math.max(0, Math.round((end - start) / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes <= 0) return `${seconds}s`;
-  return `${minutes}m ${remainingSeconds}s`;
+function fmtDateOnly(iso) {
+  if (!iso) return '-';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString();
+  } catch (err) {
+    return '-';
+  }
 }
 
 function showStatus(message, isError = false) {
@@ -46,15 +47,13 @@ function renderLogs(logs) {
     return;
   }
 
-  logs.slice(0, 5).forEach((log) => {
+  logs.slice(0, 3).forEach((log) => {
     const li = document.createElement('li');
     li.className = 'logs-item';
-    const endLabel = log.endedAt ? fmtDate(log.endedAt) : 'Em andamento';
+    const endLabel = log.endedAt ? fmtDateOnly(log.endedAt) : 'Em andamento';
     li.innerHTML = `
       <strong>#${log.id} — ${log.title}</strong>
-      <span class="muted">Início: ${fmtDate(log.startedAt)}</span>
-      <span class="muted">Fim: ${endLabel}</span>
-      <span class="muted">Duração: ${durationLabel(log.startedAt, log.endedAt)}</span>
+      <span class="muted">${fmtDateOnly(log.startedAt)} - ${endLabel}</span>
     `;
     logsEl.appendChild(li);
   });
@@ -107,6 +106,46 @@ function refresh() {
     renderLogs(displayLogs);
   });
 }
+
+function openActionsMenu() {
+  actionsMenu.classList.remove('hidden');
+  actionsToggle.setAttribute('aria-expanded', 'true');
+  actionsMenu.setAttribute('aria-hidden', 'false');
+}
+
+function closeActionsMenu() {
+  actionsMenu.classList.add('hidden');
+  actionsToggle.setAttribute('aria-expanded', 'false');
+  actionsMenu.setAttribute('aria-hidden', 'true');
+}
+
+actionsToggle.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (actionsMenu.classList.contains('hidden')) {
+    openActionsMenu();
+  } else {
+    closeActionsMenu();
+  }
+});
+
+document.addEventListener('click', (event) => {
+  if (actionsMenu.classList.contains('hidden')) return;
+  if (!actionsMenu.contains(event.target) && event.target !== actionsToggle) {
+    closeActionsMenu();
+  }
+});
+
+actionsMenu.addEventListener('click', (event) => {
+  if (event.target instanceof HTMLElement && event.target.classList.contains('menu-item')) {
+    closeActionsMenu();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeActionsMenu();
+  }
+});
 
 function stopCurrentTask() {
   if (!currentTask) return;

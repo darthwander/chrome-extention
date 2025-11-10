@@ -6,6 +6,10 @@ body {
   width: 320px;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .container {
   padding: 16px;
   display: flex;
@@ -53,9 +57,53 @@ body {
 }
 
 .actions {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
+}
+
+.actions-toggle {
+  width: 100%;
+}
+
+.actions-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.menu-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.menu-item + .menu-item {
+  border-top: 1px solid #e2e8f0;
+}
+
+.menu-item:hover,
+.menu-item:focus {
+  background: #f8fafc;
+  color: #1d4ed8;
+  outline: none;
 }
 
 .btn {
