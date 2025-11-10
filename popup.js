@@ -1,6 +1,7 @@
 const statusEl = document.getElementById('status');
 const logsEl = document.getElementById('logs');
 const stopBtn = document.getElementById('stop');
+const taskIndicator = document.getElementById('task-indicator');
 const refreshBtn = document.getElementById('refresh');
 const exportBtn = document.getElementById('export');
 const clearBtn = document.getElementById('clear');
@@ -94,9 +95,11 @@ function refresh() {
     if (currentTask && !currentTask.endedAt) {
       showStatus(`Em andamento: #${currentTask.id} — ${currentTask.title} (desde ${fmtDate(currentTask.startedAt)})`);
       stopBtn.classList.remove('hidden');
+      taskIndicator.classList.remove('hidden');
     } else {
       showStatus('Nenhuma tarefa em andamento.');
       stopBtn.classList.add('hidden');
+      taskIndicator.classList.add('hidden');
     }
 
     const displayLogs = [...logs];

@@ -52,6 +52,20 @@ body {
   color: #1e293b;
 }
 
+.status-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-indicator {
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .status-text.error {
   color: #dc2626;
 }
