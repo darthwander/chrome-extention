@@ -1,6 +1,9 @@
 (function () {
   const BUTTON_ID = "azdo-time-tracker-btn";
   const TOAST_CONTAINER_ID = "azdo-tt-toast-container";
+  const GLPI_FLOATING_CONTAINER_ID = "azdo-tt-glpi-floating";
+
+  let currentContext = null;
 
   const observer = new MutationObserver(() => {
     tryInject();
@@ -9,29 +12,27 @@
   observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
 
   function tryInject() {
-    const header = document.querySelector('.work-item-form-header');
-    if (!header) return;
+    const context = getInjectionContext();
+    if (!context) return;
 
-    if (document.getElementById(BUTTON_ID)) return;
+    currentContext = context;
 
-    const anchorContainer = header.querySelector('#jibble-button')?.parentElement
-      || header.querySelector('.wif-comment-count-link')?.parentElement
-      || header.querySelector('.flex-row');
-
-    if (!anchorContainer) return;
-
-    const btn = document.createElement('button');
-    btn.id = BUTTON_ID;
-    btn.type = 'button';
-    btn.className = 'azdo-tt-btn';
-    btn.textContent = 'Track time';
-    btn.addEventListener('click', onClick);
-
-    anchorContainer.appendChild(btn);
+    let btn = document.getElementById(BUTTON_ID);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = BUTTON_ID;
+      btn.type = 'button';
+      btn.className = 'azdo-tt-btn';
+      btn.textContent = 'Track time';
+      btn.addEventListener('click', onClick);
+      context.anchor.appendChild(btn);
+    } else if (btn.parentElement !== context.anchor) {
+      context.anchor.appendChild(btn);
+    }
   }
 
   function onClick() {
-    const item = extractWorkItem();
+    const item = currentContext?.extractItem();
     if (!item) {
       toast('Não foi possível identificar o Work Item.', 'error');
       return;
@@ -47,7 +48,29 @@
     });
   }
 
-  function extractWorkItem() {
+  function getInjectionContext() {
+    const azureHeader = document.querySelector('.work-item-form-header');
+    if (azureHeader) {
+      const anchorContainer = azureHeader.querySelector('#jibble-button')?.parentElement
+        || azureHeader.querySelector('.wif-comment-count-link')?.parentElement
+        || azureHeader.querySelector('.flex-row');
+
+      if (anchorContainer) {
+        return { anchor: anchorContainer, extractItem: extractAzureWorkItem };
+      }
+    }
+
+    if (isGlpiTicketPage()) {
+      const anchor = findGlpiAnchor();
+      if (anchor) {
+        return { anchor, extractItem: extractGlpiWorkItem };
+      }
+    }
+
+    return null;
+  }
+
+  function extractAzureWorkItem() {
     const idLink = document.querySelector('.work-item-form-header a[href*="/_workitems/edit/"]');
     let id = null;
     let url = null;
@@ -66,6 +89,65 @@
     const captureType = 'azure_devops';
 
     return { id, title, url, projectName, captureType };
+  }
+
+  function isGlpiTicketPage() {
+    if (window.location.pathname.includes('/front/ticket.form.php')) return true;
+    if (document.querySelector('meta[content*="GLPI"]')) return true;
+    return false;
+  }
+
+  function findGlpiAnchor() {
+    const preferred = document.querySelector('.timeline-header.d-flex');
+    if (preferred) return preferred;
+
+    const pageHeader = document.querySelector('.page-header, .header-title');
+    if (pageHeader) return pageHeader;
+
+    let fallback = document.getElementById(GLPI_FLOATING_CONTAINER_ID);
+    if (!fallback) {
+      fallback = document.createElement('div');
+      fallback.id = GLPI_FLOATING_CONTAINER_ID;
+      Object.assign(fallback.style, {
+        position: 'fixed',
+        bottom: '16px',
+        right: '16px',
+        zIndex: '2147483647',
+      });
+      document.body.appendChild(fallback);
+    }
+    return fallback;
+  }
+
+  function extractGlpiWorkItem() {
+    const url = window.location.href;
+    const searchParams = new URLSearchParams(window.location.search);
+    let id = searchParams.get('id');
+
+    if (!id) {
+      const altId = document.querySelector('input[name="id"], input[name="tickets_id"], input[name="items_id"]');
+      if (altId?.value) id = altId.value.trim();
+    }
+
+    const titleElement = document.querySelector('.card-title.card-header, .page-title, h1, h2');
+    const baseTitle = titleElement?.textContent?.trim() || '';
+    let title = baseTitle;
+    if (id && baseTitle && !baseTitle.includes(`(${id})`)) {
+      title = `${baseTitle} (${id})`;
+    }
+    if (!title && id) {
+      title = `Ticket ${id}`;
+    }
+
+    if (!id || !title) return null;
+
+    return {
+      id,
+      title,
+      url,
+      projectName: 'GLPI',
+      captureType: 'glpi',
+    };
   }
 
   function extractProjectName(workItemUrl) {
