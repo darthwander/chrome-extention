@@ -222,6 +222,17 @@ body {
   color: #334155;
 }
 
+.logs-item-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logs-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .logs-item strong {
   display: block;
   color: #0f172a;
@@ -230,6 +241,36 @@ body {
 
 .logs-item .muted {
   color: #64748b;
+}
+
+.logs-item-action {
+  appearance: none;
+  border: none;
+  background: #0ea5e9;
+  color: #ffffff;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  font-size: 12px;
+}
+
+.logs-item-action:hover,
+.logs-item-action:focus {
+  background: #0284c7;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.logs-item-action:disabled {
+  background: #cbd5f5;
+  color: #1e293b;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .empty-state {
