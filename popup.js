@@ -59,16 +59,95 @@ function renderLogs(logs) {
     return;
   }
 
-  logs.slice(0, 3).forEach((log) => {
+  const items = [];
+  const [maybeCurrent, ...rest] = logs;
+  if (maybeCurrent && !maybeCurrent.endedAt) {
+    items.push(maybeCurrent);
+    const remainingSlots = 3 - items.length;
+    if (remainingSlots > 0) {
+      const latestRest = rest.slice(-remainingSlots).reverse();
+      items.push(...latestRest);
+    }
+  } else {
+    items.push(...logs.slice(-3).reverse());
+  }
+
+  items.forEach((log) => {
     const li = document.createElement('li');
     li.className = 'logs-item';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'logs-item-content';
+
+    const textContainer = document.createElement('div');
+    textContainer.className = 'logs-item-text';
+
+    const strong = document.createElement('strong');
+    const accessibleTitle = log.title || `registro #${log.id}`;
+    const title = truncate(accessibleTitle, 30);
+    strong.textContent = `#${log.id} — ${title}`;
+
+    const span = document.createElement('span');
+    span.className = 'muted';
     const endLabel = log.endedAt ? fmtDateTime(log.endedAt) : 'Em andamento';
-    const title = truncate(log.title || '', 30);
-    li.innerHTML = `
-      <strong>#${log.id} — ${title}</strong>
-      <span class="muted">${fmtDateTime(log.startedAt)} - ${endLabel}</span>
-    `;
+    span.textContent = `${fmtDateTime(log.startedAt)} - ${endLabel}`;
+
+    textContainer.appendChild(strong);
+    textContainer.appendChild(span);
+
+    const actionButton = document.createElement('button');
+    actionButton.type = 'button';
+    actionButton.className = 'logs-item-action';
+    actionButton.innerHTML = '<span aria-hidden="true">▶</span>';
+    actionButton.setAttribute('aria-label', `Iniciar nova contagem para ${accessibleTitle}`);
+    actionButton.title = 'Iniciar nova contagem';
+    actionButton.disabled = !log.endedAt;
+    actionButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      startLogAgain(log);
+    });
+
+    wrapper.appendChild(textContainer);
+    wrapper.appendChild(actionButton);
+
+    li.appendChild(wrapper);
     logsEl.appendChild(li);
+  });
+}
+
+function startLogAgain(log) {
+  if (!log || !log.endedAt) {
+    return;
+  }
+
+  const payload = {
+    id: log.id,
+    title: log.title,
+    url: log.url,
+    projectName: log.projectName,
+    captureType: log.captureType,
+  };
+
+  chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: payload }, (res) => {
+    if (chrome.runtime.lastError) {
+      handleError('Falha ao iniciar nova contagem.');
+      return;
+    }
+
+    if (!res?.ok) {
+      showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
+      return;
+    }
+
+    if (res.action === 'started') {
+      showStatus(`Iniciado: #${res.started?.id} — ${res.started?.title}`);
+      stopBtn.classList.remove('hidden');
+      refresh();
+    } else if (res.action === 'stopped') {
+      showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`);
+      stopBtn.classList.add('hidden');
+      refresh();
+    }
   });
 }
 
