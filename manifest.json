@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Azure DevOps Time Tracker",
+  "name": "Time Tracker",
   "version": "1.0.0",
-  "description": "Inicia/encerra tracking de tempo a partir do modal de Work Item no Azure DevOps.",
+  "description": "Inicia/encerra tracking de tempo em itens de trabalho suportados.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "https://dev.azure.com/*",
@@ -29,7 +29,7 @@
     }
   ],
   "action": {
-    "default_title": "Azure DevOps Time Tracker",
+    "default_title": "Time Tracker",
     "default_popup": "popup.html"
   }
 }

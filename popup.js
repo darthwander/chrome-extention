@@ -63,7 +63,7 @@ function renderLogs(logs) {
     const li = document.createElement('li');
     li.className = 'logs-item';
     const endLabel = log.endedAt ? fmtDateTime(log.endedAt) : 'Em andamento';
-    const title = truncate(log.title || '', 42);
+    const title = truncate(log.title || '', 30);
     li.innerHTML = `
       <strong>#${log.id} — ${title}</strong>
       <span class="muted">${fmtDateTime(log.startedAt)} - ${endLabel}</span>
