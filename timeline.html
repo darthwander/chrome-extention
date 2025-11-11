@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time Tracker Timeline</title>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 16px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 200px;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    select[multiple] {
+      min-height: 120px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #1f77b4;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #155d88;
+    }
+
+    #timeline-container {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      padding: 16px;
+    }
+
+    #timeline {
+      width: 100%;
+    }
+
+    #legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .legend-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+
+    .legend-item.disabled {
+      opacity: 0.4;
+      border-color: #ccc;
+    }
+
+    @media (max-width: 768px) {
+      .control-group {
+        min-width: 160px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Time Tracker Timeline</h1>
+  <div id="controls">
+    <div class="control-group">
+      <label for="projectFilter">Projeto</label>
+      <select id="projectFilter" multiple></select>
+    </div>
+    <div class="control-group">
+      <label for="originFilter">Origem</label>
+      <select id="originFilter" multiple></select>
+    </div>
+    <div class="control-group">
+      <label for="startDateFilter">Início</label>
+      <input type="datetime-local" id="startDateFilter" />
+    </div>
+    <div class="control-group">
+      <label for="endDateFilter">Fim</label>
+      <input type="datetime-local" id="endDateFilter" />
+    </div>
+    <div class="buttons">
+      <button id="updateButton" type="button">Atualizar</button>
+      <button id="clearButton" type="button">Limpar filtros</button>
+      <button id="exportButton" type="button">Exportar PNG</button>
+    </div>
+  </div>
+  <div id="timeline-container">
+    <div id="timeline"></div>
+    <div id="legend"></div>
+  </div>
+
+  <script>
+    const ORIGIN_COLORS = {
+      azure_devops: '#1f77b4',
+      glpi: '#2ca02c',
+      outros: '#9467bd'
+    };
+
+    const rawData = [
+      {
+        ID: 4581,
+        Titulo: 'Planejamento sprint 34',
+        Projeto: 'Migração Legado',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-10T12:10:00Z',
+        Fim: '2025-11-10T13:00:00Z',
+        DuracaoSegundos: 3000
+      },
+      {
+        ID: 4582,
+        Titulo: 'Atendimento incidente #4032',
+        Projeto: 'GLPI',
+        Origem: 'glpi',
+        Inicio: '2025-11-10T13:15:00Z',
+        Fim: '2025-11-10T14:05:00Z',
+        DuracaoSegundos: 3000
+      },
+      {
+        ID: 4583,
+        Titulo: 'Deploy hotfix 1.34',
+        Projeto: '360',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-10T15:00:00Z',
+        Fim: '2025-11-10T16:00:00Z',
+        DuracaoSegundos: 3600
+      },
+      {
+        ID: 4584,
+        Titulo: 'Alinhamento com suporte',
+        Projeto: 'GLPI',
+        Origem: 'glpi',
+        Inicio: '2025-11-10T16:15:00Z',
+        Fim: '2025-11-10T16:45:00Z',
+        DuracaoSegundos: 1800
+      },
+      {
+        ID: 4585,
+        Titulo: 'Revisão backlog migração',
+        Projeto: 'Migração Legado',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-10T17:00:00Z',
+        Fim: null,
+        DuracaoSegundos: 5400
+      },
+      {
+        ID: 4586,
+        Titulo: 'Atualização documentação integração',
+        Projeto: '360',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-11T12:30:00Z',
+        Fim: '2025-11-11T14:00:00Z',
+        DuracaoSegundos: 5400
+      },
+      {
+        ID: 4587,
+        Titulo: 'Problema 03 - Quantitativo inconsistente',
+        Projeto: 'Migração Legado',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-11T14:15:00Z',
+        Fim: '2025-11-11T14:30:00Z',
+        DuracaoSegundos: 900
+      },
+      {
+        ID: 4588,
+        Titulo: 'Reunião follow-up fornecedores',
+        Projeto: '360',
+        Origem: 'glpi',
+        Inicio: '2025-11-11T15:00:00Z',
+        Fim: '2025-11-11T16:30:00Z',
+        DuracaoSegundos: 5400
+      },
+      {
+        ID: 4589,
+        Titulo: 'Ajustes ticket integração',
+        Projeto: 'Migração Legado',
+        Origem: 'glpi',
+        Inicio: '2025-11-11T17:00:00Z',
+        Fim: '2025-11-11T18:00:00Z',
+        DuracaoSegundos: 3600
+      },
+      {
+        ID: 4590,
+        Titulo: 'Suporte operação 360',
+        Projeto: '360',
+        Origem: 'glpi',
+        Inicio: '2025-11-11T18:30:00Z',
+        Fim: null,
+        DuracaoSegundos: 2700
+      },
+      {
+        ID: 4591,
+        Titulo: 'Refinamento backlog',
+        Projeto: 'Migração Legado',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-12T12:00:00Z',
+        Fim: '2025-11-12T13:15:00Z',
+        DuracaoSegundos: 4500
+      },
+      {
+        ID: 4592,
+        Titulo: 'Atendimento chamado SLA crítico',
+        Projeto: 'GLPI',
+        Origem: 'glpi',
+        Inicio: '2025-11-12T13:45:00Z',
+        Fim: '2025-11-12T15:00:00Z',
+        DuracaoSegundos: 4500
+      },
+      {
+        ID: 4593,
+        Titulo: 'Workshop integração parceiros',
+        Projeto: '360',
+        Origem: 'azure_devops',
+        Inicio: '2025-11-12T15:30:00Z',
+        Fim: '2025-11-12T17:30:00Z',
+        DuracaoSegundos: 7200
+      },
+      {
+        ID: 4594,
+        Titulo: 'Monitoramento pós deploy',
+        Projeto: 'Migração Legado',
+        Origem: 'outros',
+        Inicio: '2025-11-12T18:00:00Z',
+        Fim: '2025-11-12T19:00:00Z',
+        DuracaoSegundos: 3600
+      }
+    ];
+
+    let googleChart;
+    let currentRows = [];
+    let activeLegendOrigins = new Set();
+
+    function formatDuration(seconds) {
+      if (!Number.isFinite(seconds)) {
+        return '00:00:00';
+      }
+      const absSeconds = Math.max(0, Math.floor(seconds));
+      const hours = String(Math.floor(absSeconds / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((absSeconds % 3600) / 60)).padStart(2, '0');
+      const secs = String(absSeconds % 60).padStart(2, '0');
+      return `${hours}:${minutes}:${secs}`;
+    }
+
+    function parseRawToRows(raw, filters) {
+      const { projects, origins, startDate, endDate } = filters;
+      const now = new Date();
+      const timezone = 'America/Sao_Paulo';
+
+      return raw
+        .map((item) => {
+          if (!item.Inicio) {
+            return null;
+          }
+          const start = new Date(item.Inicio);
+          if (Number.isNaN(start.getTime())) {
+            return null;
+          }
+          const end = item.Fim ? new Date(item.Fim) : new Date(now);
+          if (Number.isNaN(end.getTime())) {
+            return null;
+          }
+          const originKey = item.Origem && ORIGIN_COLORS[item.Origem] ? item.Origem : 'outros';
+          const originDisplay = item.Origem || 'outros';
+          const tooltip = `
+            <div>
+              <strong>${item.Titulo}</strong><br />
+              <div>ID: ${item.ID}</div>
+              <div>Projeto: ${item.Projeto}</div>
+              <div>Origem: ${originDisplay}</div>
+              <div>Início: ${start.toLocaleString('pt-BR', { timeZone: timezone })}</div>
+              <div>Fim: ${item.Fim ? end.toLocaleString('pt-BR', { timeZone: timezone }) : 'Em andamento'}</div>
+              <div>Duração: ${formatDuration(item.DuracaoSegundos)}</div>
+            </div>
+          `.trim();
+
+          return {
+            project: item.Projeto,
+            title: item.Titulo,
+            origin: originKey,
+            start,
+            rawEnd: item.Fim,
+            end,
+            tooltip,
+            durationSeconds: item.DuracaoSegundos
+          };
+        })
+        .filter(Boolean)
+        .filter((row) => {
+          if (projects.size && !projects.has(row.project)) {
+            return false;
+          }
+          if (origins.size && !origins.has(row.origin)) {
+            return false;
+          }
+          if (!activeLegendOrigins.has(row.origin)) {
+            return false;
+          }
+          if (startDate && row.end < startDate) {
+            return false;
+          }
+          if (endDate && row.start > endDate) {
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => a.start - b.start);
+    }
+
+    function drawTimeline(rows) {
+      if (!googleChart) {
+        googleChart = new google.visualization.Timeline(document.getElementById('timeline'));
+      }
+      const containerWidth = document.getElementById('timeline-container').clientWidth;
+      const dataTable = new google.visualization.DataTable();
+      dataTable.addColumn({ type: 'string', id: 'Projeto' });
+      dataTable.addColumn({ type: 'string', id: 'Título' });
+      dataTable.addColumn({ type: 'string', role: 'tooltip', p: { html: true } });
+      dataTable.addColumn({ type: 'string', role: 'style' });
+      dataTable.addColumn({ type: 'date', id: 'Início' });
+      dataTable.addColumn({ type: 'date', id: 'Fim' });
+
+      rows.forEach((row) => {
+        const color = ORIGIN_COLORS[row.origin] || ORIGIN_COLORS.outros;
+        dataTable.addRow([
+          row.project,
+          row.title,
+          row.tooltip,
+          `color: ${color}`,
+          row.start,
+          row.end
+        ]);
+      });
+
+      const uniqueProjects = new Set(rows.map((row) => row.project)).size || 1;
+      const chartHeight = uniqueProjects * 50 + 80;
+
+      const options = {
+        timeline: {
+          showRowLabels: true,
+          groupByRowLabel: true
+        },
+        height: chartHeight,
+        width: containerWidth,
+        hAxis: {
+          format: 'dd/MM HH:mm'
+        },
+        tooltip: {
+          isHtml: true
+        }
+      };
+
+      googleChart.draw(dataTable, options);
+      currentRows = rows;
+    }
+
+    function buildLegend(colorByOrigin) {
+      const legendContainer = document.getElementById('legend');
+      legendContainer.innerHTML = '';
+      Object.entries(colorByOrigin).forEach(([origin, color]) => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.dataset.origin = origin;
+        if (!activeLegendOrigins.has(origin)) {
+          item.classList.add('disabled');
+        }
+
+        const swatch = document.createElement('span');
+        swatch.className = 'legend-swatch';
+        swatch.style.backgroundColor = color;
+
+        const label = document.createElement('span');
+        label.textContent = origin;
+
+        item.appendChild(swatch);
+        item.appendChild(label);
+
+        item.addEventListener('click', () => {
+          if (activeLegendOrigins.has(origin)) {
+            activeLegendOrigins.delete(origin);
+          } else {
+            activeLegendOrigins.add(origin);
+          }
+          updateChartFromFilters();
+        });
+
+        legendContainer.appendChild(item);
+      });
+    }
+
+    function exportPng() {
+      const timelineElement = document.getElementById('timeline');
+      html2canvas(timelineElement, { backgroundColor: '#ffffff' }).then((canvas) => {
+        const link = document.createElement('a');
+        link.download = 'timeline.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+    }
+
+    function getFilters() {
+      const projectSelect = document.getElementById('projectFilter');
+      const originSelect = document.getElementById('originFilter');
+      const startDateValue = document.getElementById('startDateFilter').value;
+      const endDateValue = document.getElementById('endDateFilter').value;
+
+      const selectedProjects = new Set(Array.from(projectSelect.selectedOptions).map((opt) => opt.value));
+      const selectedOrigins = new Set(Array.from(originSelect.selectedOptions).map((opt) => opt.value));
+
+      const startDate = startDateValue ? new Date(startDateValue) : null;
+      const endDate = endDateValue ? new Date(endDateValue) : null;
+
+      if (startDate && Number.isNaN(startDate.getTime())) {
+        return { projects: selectedProjects, origins: selectedOrigins, startDate: null, endDate };
+      }
+      if (endDate && Number.isNaN(endDate.getTime())) {
+        return { projects: selectedProjects, origins: selectedOrigins, startDate, endDate: null };
+      }
+
+      return { projects: selectedProjects, origins: selectedOrigins, startDate, endDate };
+    }
+
+    function populateFilters(raw) {
+      const projectSelect = document.getElementById('projectFilter');
+      const originSelect = document.getElementById('originFilter');
+
+      const projects = Array.from(new Set(raw.map((item) => item.Projeto))).sort();
+      const originSet = new Set(Object.keys(ORIGIN_COLORS));
+      raw.forEach((item) => {
+        const normalized = item.Origem && ORIGIN_COLORS[item.Origem] ? item.Origem : 'outros';
+        originSet.add(normalized);
+      });
+      const origins = Array.from(originSet).sort();
+
+      projectSelect.innerHTML = '';
+      originSelect.innerHTML = '';
+
+      projects.forEach((project) => {
+        const option = document.createElement('option');
+        option.value = project;
+        option.textContent = project;
+        projectSelect.appendChild(option);
+      });
+
+      origins.forEach((origin) => {
+        const option = document.createElement('option');
+        option.value = origin;
+        option.textContent = origin;
+        originSelect.appendChild(option);
+      });
+
+      activeLegendOrigins = new Set(Object.keys(ORIGIN_COLORS));
+    }
+
+    function clearFilters() {
+      const projectSelect = document.getElementById('projectFilter');
+      const originSelect = document.getElementById('originFilter');
+
+      Array.from(projectSelect.options).forEach((option) => {
+        option.selected = false;
+      });
+      Array.from(originSelect.options).forEach((option) => {
+        option.selected = false;
+      });
+      document.getElementById('startDateFilter').value = '';
+      document.getElementById('endDateFilter').value = '';
+      activeLegendOrigins = new Set(Object.keys(ORIGIN_COLORS));
+      updateChartFromFilters();
+    }
+
+    function updateChartFromFilters() {
+      const filters = getFilters();
+      const rows = parseRawToRows(rawData, filters);
+      drawTimeline(rows);
+      buildLegend(ORIGIN_COLORS);
+      refreshLegendStyles();
+    }
+
+    function refreshLegendStyles() {
+      const legendItems = document.querySelectorAll('#legend .legend-item');
+      legendItems.forEach((item) => {
+        const origin = item.dataset.origin;
+        if (activeLegendOrigins.has(origin)) {
+          item.classList.remove('disabled');
+        } else {
+          item.classList.add('disabled');
+        }
+      });
+    }
+
+    function init() {
+      populateFilters(rawData);
+      buildLegend(ORIGIN_COLORS);
+      updateChartFromFilters();
+
+      document.getElementById('updateButton').addEventListener('click', updateChartFromFilters);
+      document.getElementById('clearButton').addEventListener('click', clearFilters);
+      document.getElementById('exportButton').addEventListener('click', exportPng);
+
+      window.addEventListener('resize', () => {
+        if (googleChart) {
+          drawTimeline(currentRows);
+        }
+      });
+    }
+
+    google.charts.load('current', { packages: ['timeline'] });
+    google.charts.setOnLoadCallback(init);
+  </script>
+</body>
+</html>
