@@ -339,6 +339,7 @@ function updateTimelineFromRows(rows) {
 
   renderLegend(timelineRows);
   renderSimpleTimeline(timelineRows);
+  renderProjectPieFromRows(rows);
 }
 
 window.addEventListener('resize', () => {
@@ -346,3 +347,66 @@ window.addEventListener('resize', () => {
     renderSimpleTimeline(lastTimelineRows);
   }
 });
+
+function renderProjectPieFromRows(rawRows) {
+  const wrap = document.getElementById('project-pie-wrap');
+  const pie = document.getElementById('project-pie');
+  const legend = document.getElementById('project-pie-legend');
+  const empty = document.getElementById('project-pie-empty');
+  if (!wrap || !pie || !legend) return;
+
+  const now = new Date();
+  const totalsMap = new Map();
+  (rawRows || []).forEach(r => {
+    if (!r?.startedAt) return;
+    const start = new Date(r.startedAt);
+    const end = r.endedAt ? new Date(r.endedAt) : now;
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+    const dur = Math.max(0, end - start) / 1000; // seconds
+    const project = r.projectName || 'Sem projeto';
+    totalsMap.set(project, (totalsMap.get(project) || 0) + dur);
+  });
+
+  const totals = Array.from(totalsMap.entries()).filter(([,v]) => v > 0);
+  const grand = totals.reduce((s, [,v]) => s + v, 0);
+
+  if (!grand) {
+    if (wrap) wrap.hidden = true;
+    if (empty) empty.hidden = false;
+    pie.style.background = 'conic-gradient(#e5e7eb 0 100%)';
+    legend.innerHTML = '';
+    return;
+  }
+
+  const colors = ['#2563eb','#16a34a','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#475569','#84cc16','#f97316'];
+  const colorFor = (name) => {
+    let h = 0; for (let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) >>> 0; return colors[h % colors.length];
+  };
+
+  let current = 0;
+  const stops = [];
+  legend.innerHTML = '';
+  totals.sort((a,b)=>b[1]-a[1]).forEach(([project, seconds]) => {
+    const pct = (seconds / grand) * 100;
+    const startPct = current;
+    const endPct = current + pct;
+    const color = colorFor(project);
+    stops.push(`${color} ${startPct}% ${endPct}%`);
+    current = endPct;
+
+    const item = document.createElement('div');
+    item.className = 'pie-item';
+    const sw = document.createElement('span');
+    sw.className = 'pie-swatch';
+    sw.style.backgroundColor = color;
+    const label = document.createElement('span');
+    label.textContent = `${project} — ${pct.toFixed(0)}%`;
+    item.appendChild(sw);
+    item.appendChild(label);
+    legend.appendChild(item);
+  });
+
+  pie.style.background = `conic-gradient(${stops.join(',')})`;
+  wrap.hidden = false;
+  if (empty) empty.hidden = true;
+}
