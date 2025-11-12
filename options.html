@@ -42,6 +42,7 @@
     }
     /* Simple built-in timeline styles */
     #timeline { width: 100%; min-height: 120px; }
+    .tl-time-axis { display: flex; justify-content: space-between; margin: 0 2px 8px; font-size: 11px; color: #6b7280; }
     .tl-project { margin-bottom: 18px; }
     .tl-label { margin: 0 0 6px; font-size: 12px; color: #374151; }
     .tl-track { position: relative; height: 22px; border-radius: 6px; background: #f1f5f9; overflow: hidden; }
@@ -109,6 +110,7 @@
       data-loading-text="Carregando gráfico..."
       hidden
     >Nenhum registro disponível para exibir.</div>
+    <div id="timeline-axis" class="tl-time-axis" hidden></div>
     <div id="timeline" hidden></div>
     <div id="timeline-legend" class="timeline-legend" hidden></div>
   </div>

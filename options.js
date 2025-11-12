@@ -1,4 +1,4 @@
-const ORIGIN_COLORS = {
+﻿const ORIGIN_COLORS = {
   azure_devops: '#1f77b4',
   glpi: '#2ca02c',
   outros: '#9467bd',
@@ -10,14 +10,12 @@ const ORIGIN_LABELS = {
   outros: 'Outros',
 };
 
-let googleChart;
-let chartReady = false;
 let lastTimelineRows = [];
 const timelineEmptyElement = document.getElementById('timeline-empty');
 const TIMELINE_EMPTY_MESSAGE =
-  (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponível para exibir.').trim();
+  (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponÃ­vel para exibir.').trim();
 const TIMELINE_LOADING_MESSAGE =
-  (timelineEmptyElement?.dataset?.loadingText || 'Carregando gráfico...').trim();
+  (timelineEmptyElement?.dataset?.loadingText || 'Carregando grÃ¡fico...').trim();
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -46,7 +44,7 @@ async function load() {
     const logs = res.logs || [];
 
     if (current && !current.endedAt) {
-      status.textContent = `Em andamento: #${current.id} — ${current.title} (desde ${fmtDate(current.startedAt)})`;
+      status.textContent = `Em andamento: #${current.id} â€” ${current.title} (desde ${fmtDate(current.startedAt)})`;
     } else {
       status.textContent = 'Nenhuma tarefa em andamento.';
     }
@@ -102,7 +100,7 @@ async function load() {
         link.textContent = 'Abrir no Azure';
         actionsTd.appendChild(link);
       } else {
-        actionsTd.textContent = '—';
+        actionsTd.textContent = 'â€”';
       }
       tr.appendChild(actionsTd);
 
@@ -182,16 +180,16 @@ function buildTimelineRows(rawRows) {
 
       const duration = (endDate - start) / 1000;
       const project = row.projectName || 'Sem projeto';
-      const title = row.title || (row.id ? `Item ${row.id}` : 'Item sem título');
+      const title = row.title || (row.id ? `Item ${row.id}` : 'Item sem tÃ­tulo');
       const tooltip = `
         <div>
           <strong>${title}</strong><br />
           <div>ID: ${row.id ?? '-'}</div>
           <div>Projeto: ${project}</div>
           <div>Origem: ${ORIGIN_LABELS[origin] ?? origin}</div>
-          <div>Início: ${start.toLocaleString('pt-BR', { timeZone: timezone })}</div>
+          <div>InÃ­cio: ${start.toLocaleString('pt-BR', { timeZone: timezone })}</div>
           <div>Fim: ${row.endedAt ? endDate.toLocaleString('pt-BR', { timeZone: timezone }) : 'Em andamento'}</div>
-          <div>Duração: ${formatDuration(duration)}</div>
+          <div>DuraÃ§Ã£o: ${formatDuration(duration)}</div>
         </div>
       `.trim();
 
@@ -212,8 +210,13 @@ function setTimelineEmptyState() {
   const timeline = document.getElementById('timeline');
   const empty = document.getElementById('timeline-empty');
   const legend = document.getElementById('timeline-legend');
+  const axis = document.getElementById('timeline-axis');
   if (timeline) {
     timeline.hidden = true;
+  }
+  if (axis) {
+    axis.hidden = true;
+    axis.innerHTML = '';
   }
   if (empty) {
     empty.textContent = TIMELINE_EMPTY_MESSAGE;
@@ -257,6 +260,7 @@ function renderLegend(rows) {
 
 function renderSimpleTimeline(rows) {
   const timelineElement = document.getElementById('timeline');
+  const axisElement = document.getElementById('timeline-axis');
   if (!timelineElement) return;
   if (!rows.length) {
     setTimelineEmptyState();
@@ -264,6 +268,7 @@ function renderSimpleTimeline(rows) {
   }
 
   timelineElement.innerHTML = '';
+  if (axisElement) { axisElement.innerHTML = ''; }
 
   const minStart = new Date(Math.min.apply(null, rows.map(r => r.start.getTime())));
   const maxEnd = new Date(Math.max.apply(null, rows.map(r => r.end.getTime())));
@@ -274,43 +279,32 @@ function renderSimpleTimeline(rows) {
     return acc;
   }, {});
 
+  // time-based placement (reflect real time span)
   Object.keys(byProject).forEach(project => {
-    const group = byProject[project];
+    const group = byProject[project].slice().sort((a,b)=>a.start-b.start);
     const wrapper = document.createElement('div');
     wrapper.className = 'tl-project';
-
-    const label = document.createElement('div');
-    label.className = 'tl-label';
-    label.textContent = project;
-    wrapper.appendChild(label);
 
     const track = document.createElement('div');
     track.className = 'tl-track';
 
     group.forEach(item => {
+      const dur = Math.max(0, (item.end - item.start));
       const leftPct = ((item.start - minStart) / totalMs) * 100;
-      const widthPct = Math.max(1, ((item.end - item.start) / totalMs) * 100);
+      const widthPct = (dur / totalMs) * 100;
       const bar = document.createElement('div');
       bar.className = 'tl-item';
       bar.style.left = leftPct + '%';
-      bar.style.width = widthPct + '%';
+      bar.style.width = (widthPct <= 0 ? 0.8 : widthPct) + '%';
+      bar.style.minWidth = '6px';
       bar.style.backgroundColor = ORIGIN_COLORS[item.origin] || ORIGIN_COLORS.outros;
-      bar.title = `${item.title}\n${item.project}\n${item.start.toLocaleString()} - ${item.end.toLocaleString()}`;
       if (!item.end) bar.setAttribute('aria-current', 'true');
       track.appendChild(bar);
     });
 
     wrapper.appendChild(track);
 
-    const axis = document.createElement('div');
-    axis.className = 'tl-axis';
-    const startLabel = document.createElement('span');
-    startLabel.textContent = minStart.toLocaleString();
-    const endLabel = document.createElement('span');
-    endLabel.textContent = maxEnd.toLocaleString();
-    axis.appendChild(startLabel);
-    axis.appendChild(endLabel);
-    wrapper.appendChild(axis);
+    // eixo removido
 
     timelineElement.appendChild(wrapper);
   });
@@ -318,58 +312,22 @@ function renderSimpleTimeline(rows) {
   timelineElement.hidden = false;
   const empty = document.getElementById('timeline-empty');
   if (empty) empty.hidden = true;
-}
-
-function drawTimeline(rows) {
-  const timelineElement = document.getElementById('timeline');
-  if (!timelineElement || !rows.length) {
-    setTimelineEmptyState();
-    return;
-  }
-
-  if (!googleChart) {
-    googleChart = new google.visualization.Timeline(timelineElement);
-  }
-
-  const dataTable = new google.visualization.DataTable();
-  dataTable.addColumn({ type: 'string', id: 'Projeto' });
-  dataTable.addColumn({ type: 'string', id: 'Título' });
-  dataTable.addColumn({ type: 'string', role: 'tooltip', p: { html: true } });
-  dataTable.addColumn({ type: 'string', role: 'style' });
-  dataTable.addColumn({ type: 'date', id: 'Início' });
-  dataTable.addColumn({ type: 'date', id: 'Fim' });
-
-  rows.forEach((row) => {
-    const color = ORIGIN_COLORS[row.origin] || ORIGIN_COLORS.outros;
-    dataTable.addRow([
-      row.project,
-      row.title,
-      row.tooltip,
-      `color: ${color}`,
-      row.start,
-      row.end,
-    ]);
-  });
-
-  const projectCount = new Set(rows.map((row) => row.project)).size || 1;
-  const options = {
-    timeline: {
-      showRowLabels: true,
-      groupByRowLabel: true,
-    },
-    height: projectCount * 46 + 80,
-    tooltip: { isHtml: true },
-    hAxis: { format: 'dd/MM HH:mm' },
-  };
-
-  googleChart.draw(dataTable, options);
-  timelineElement.hidden = false;
-  const empty = document.getElementById('timeline-empty');
-  if (empty) {
-    empty.hidden = true;
+  // render top time axis with evenly spaced ticks
+  if (axisElement) {
+    const ticks = 5; // start + 3 mids + end = 5 or adjust
+    const fmt = (d) => d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    axisElement.hidden = false;
+    axisElement.innerHTML = '';
+    for (let i = 0; i <= ticks; i++) {
+      const t = new Date(minStart.getTime() + (totalMs * i) / ticks);
+      const span = document.createElement('span');
+      span.textContent = fmt(t);
+      axisElement.appendChild(span);
+    }
   }
 }
 
+// drawTimeline removida
 function updateTimelineFromRows(rows) {
   const timelineRows = buildTimelineRows(rows);
   lastTimelineRows = timelineRows;
