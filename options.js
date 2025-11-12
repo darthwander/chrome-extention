@@ -255,6 +255,71 @@ function renderLegend(rows) {
   });
 }
 
+function renderSimpleTimeline(rows) {
+  const timelineElement = document.getElementById('timeline');
+  if (!timelineElement) return;
+  if (!rows.length) {
+    setTimelineEmptyState();
+    return;
+  }
+
+  timelineElement.innerHTML = '';
+
+  const minStart = new Date(Math.min.apply(null, rows.map(r => r.start.getTime())));
+  const maxEnd = new Date(Math.max.apply(null, rows.map(r => r.end.getTime())));
+  const totalMs = Math.max(1, maxEnd - minStart);
+
+  const byProject = rows.reduce((acc, r) => {
+    (acc[r.project] = acc[r.project] || []).push(r);
+    return acc;
+  }, {});
+
+  Object.keys(byProject).forEach(project => {
+    const group = byProject[project];
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tl-project';
+
+    const label = document.createElement('div');
+    label.className = 'tl-label';
+    label.textContent = project;
+    wrapper.appendChild(label);
+
+    const track = document.createElement('div');
+    track.className = 'tl-track';
+
+    group.forEach(item => {
+      const leftPct = ((item.start - minStart) / totalMs) * 100;
+      const widthPct = Math.max(1, ((item.end - item.start) / totalMs) * 100);
+      const bar = document.createElement('div');
+      bar.className = 'tl-item';
+      bar.style.left = leftPct + '%';
+      bar.style.width = widthPct + '%';
+      bar.style.backgroundColor = ORIGIN_COLORS[item.origin] || ORIGIN_COLORS.outros;
+      bar.title = `${item.title}\n${item.project}\n${item.start.toLocaleString()} - ${item.end.toLocaleString()}`;
+      if (!item.end) bar.setAttribute('aria-current', 'true');
+      track.appendChild(bar);
+    });
+
+    wrapper.appendChild(track);
+
+    const axis = document.createElement('div');
+    axis.className = 'tl-axis';
+    const startLabel = document.createElement('span');
+    startLabel.textContent = minStart.toLocaleString();
+    const endLabel = document.createElement('span');
+    endLabel.textContent = maxEnd.toLocaleString();
+    axis.appendChild(startLabel);
+    axis.appendChild(endLabel);
+    wrapper.appendChild(axis);
+
+    timelineElement.appendChild(wrapper);
+  });
+
+  timelineElement.hidden = false;
+  const empty = document.getElementById('timeline-empty');
+  if (empty) empty.hidden = true;
+}
+
 function drawTimeline(rows) {
   const timelineElement = document.getElementById('timeline');
   if (!timelineElement || !rows.length) {
@@ -315,35 +380,11 @@ function updateTimelineFromRows(rows) {
   }
 
   renderLegend(timelineRows);
-  if (chartReady) {
-    drawTimeline(timelineRows);
-  } else {
-    const timeline = document.getElementById('timeline');
-    if (timeline) {
-      timeline.hidden = true;
-    }
-    const empty = document.getElementById('timeline-empty');
-    if (empty) {
-      empty.textContent = TIMELINE_LOADING_MESSAGE;
-      empty.hidden = false;
-    }
-  }
-}
-
-if (window.google && window.google.charts) {
-  window.google.charts.load('current', { packages: ['timeline'] });
-  window.google.charts.setOnLoadCallback(() => {
-    chartReady = true;
-    if (lastTimelineRows.length) {
-      drawTimeline(lastTimelineRows);
-    } else {
-      setTimelineEmptyState();
-    }
-  });
+  renderSimpleTimeline(timelineRows);
 }
 
 window.addEventListener('resize', () => {
-  if (chartReady && googleChart && lastTimelineRows.length) {
-    drawTimeline(lastTimelineRows);
+  if (lastTimelineRows.length) {
+    renderSimpleTimeline(lastTimelineRows);
   }
 });
