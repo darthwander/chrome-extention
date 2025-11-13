@@ -274,14 +274,16 @@ function renderSimpleTimeline(rows) {
   const maxEnd = new Date(Math.max.apply(null, rows.map(r => r.end.getTime())));
   const totalMs = Math.max(1, maxEnd - minStart);
 
-  const byProject = rows.reduce((acc, r) => {
-    (acc[r.project] = acc[r.project] || []).push(r);
+  // Agrupar por atividade (título), não por projeto
+  const byActivity = rows.reduce((acc, r) => {
+    const key = r.title || 'Atividade';
+    (acc[key] = acc[key] || []).push(r);
     return acc;
   }, {});
 
   // time-based placement (reflect real time span)
-  Object.keys(byProject).forEach(project => {
-    const group = byProject[project].slice().sort((a,b)=>a.start-b.start);
+  Object.keys(byActivity).forEach(activity => {
+    const group = byActivity[activity].slice().sort((a,b)=>a.start-b.start);
     const wrapper = document.createElement('div');
     wrapper.className = 'tl-project';
 
