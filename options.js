@@ -76,9 +76,10 @@ async function load() {
       rows.push({ ...current });
     }
 
-    updateTimelineFromRows(filterByPeriod(rows));
+    const filtered = filterByPeriod(rows);
+    updateTimelineFromRows(filtered);
 
-    for (const r of rows) {
+    for (const r of filtered) {
       const tr = document.createElement('tr');
       const isRunning = !r.endedAt;
       const endLabel = isRunning ? 'EM ANDAMENTO' : fmtDate(r.endedAt);
@@ -133,6 +134,9 @@ async function load() {
 }
 
 document.getElementById('refresh').addEventListener('click', load);
+// Aplicar filtro automaticamente quando datas mudarem
+if (fromInput) { fromInput.addEventListener('change', load); fromInput.addEventListener('input', load); }
+if (toInput) { toInput.addEventListener('change', load); toInput.addEventListener('input', load); }
 
 document.getElementById('clear').addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'clearLogs' }, () => load());
