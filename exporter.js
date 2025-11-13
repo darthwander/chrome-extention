@@ -57,7 +57,7 @@
     return `<c ${attrs} t="inlineStr"><is><t xml:space="preserve">${escapeXml(text)}</t></is></c>`;
   }
 
-  function buildSheetXml(rows, exportedAt) {
+  function buildSheetXml(rows, exportedAt, meta = {}) {
     const exportLabel = formatExportHeaderDate(exportedAt);
     const columns = [
       { key: 'id', title: 'ID' },
@@ -108,6 +108,12 @@
     const sheetDimension = `A1:${lastColumnLetter}${totalRows}`;
     const autoFilterRef = `A${headerRowIndex}:${lastColumnLetter}${Math.max(headerRowIndex, totalRows)}`;
 
+    const headerInfo = [
+      meta.userName ? `Usuário: ${meta.userName}` : null,
+      meta.period ? `Período: ${meta.period}` : null,
+      exportLabel ? `Exportado em: ${exportLabel}` : null,
+    ].filter(Boolean).join(' — ');
+
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
       `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
       `<dimension ref="${sheetDimension}"/>` +
@@ -115,7 +121,7 @@
       `<sheetFormatPr baseColWidth="10" defaultRowHeight="15"/>` +
       `<cols>${colDefs}</cols>` +
       `<sheetData>` +
-      `<row r="1" spans="1:${columns.length}">${makeCell(0, 1, exportLabel ? `Exportado em: ${exportLabel}` : 'Exportado em:', 0, false)}</row>` +
+      `<row r="1" spans="1:${columns.length}">${makeCell(0, 1, headerInfo || 'Exportado', 0, false)}</row>` +
       `<row r="${headerRowIndex}" spans="1:${columns.length}">${headerCells}</row>` +
       `${dataRowsXml}` +
       `</sheetData>` +
@@ -338,7 +344,7 @@
     return zipData;
   }
 
-  function buildXlsx(rows, exportedAt) {
+  function buildXlsx(rows, exportedAt, meta) {
     return createZip([
       { name: '[Content_Types].xml', data: buildContentTypesXml() },
       { name: '_rels/.rels', data: buildRootRelsXml() },
@@ -347,7 +353,7 @@
       { name: 'xl/workbook.xml', data: buildWorkbookXml() },
       { name: 'xl/_rels/workbook.xml.rels', data: buildWorkbookRelsXml() },
       { name: 'xl/styles.xml', data: buildStylesXml() },
-      { name: 'xl/worksheets/sheet1.xml', data: buildSheetXml(rows, exportedAt) },
+      { name: 'xl/worksheets/sheet1.xml', data: buildSheetXml(rows, exportedAt, meta) },
     ]);
   }
 

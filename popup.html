@@ -25,17 +25,34 @@
             <span aria-hidden="true" class="icon-bar"></span>
           </button>
           <div id="actions-menu" class="actions-menu hidden" role="menu" aria-hidden="true">
-            <button id="refresh" type="button" class="menu-item" role="menuitem">Atualizar</button>
-            <button id="export" type="button" class="menu-item" role="menuitem">Exportar XLSX</button>
-            <button id="clear" type="button" class="menu-item" role="menuitem">Limpar Logs</button>
-            <button id="open-logs" type="button" class="menu-item" role="menuitem">Abrir lista completa</button>
+            <button id="refresh" type="button" class="menu-item" role="menuitem" disabled>Atualizar</button>
+            <button id="export" type="button" class="menu-item" role="menuitem" disabled>Exportar XLSX</button>
+            <button id="clear" type="button" class="menu-item" role="menuitem" disabled>Limpar Logs</button>
+            <button id="open-logs" type="button" class="menu-item" role="menuitem" disabled>Abrir lista completa</button>
+            <button id="edit-profile" type="button" class="menu-item hidden" role="menuitem">Editar nome e email</button>
           </div>
         </div>
         <h1 class="title">Time Tracker</h1>
         <p class="subtitle">Acompanhe o status atual do rastreamento.</p>
       </header>
 
-      <section class="card">
+      <section id="profile-panel" class="card">
+        <h2 class="card-title">Perfil necessário</h2>
+        <p class="subtitle">Informe seu nome e email para usar a extensão.</p>
+        <div class="form-row" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="profile-name">Nome</label>
+            <input id="profile-name" type="text" placeholder="Seu nome" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="profile-email">Email</label>
+            <input id="profile-email" type="email" placeholder="voce@exemplo.com" />
+          </div>
+          <button id="save-profile-popup" type="button" class="btn">Salvar</button>
+        </div>
+      </section>
+
+      <section id="status-section" class="card hidden">
         <h2 class="card-title">Status</h2>
         <p id="status" class="status-text">Carregando…</p>
         <div class="status-actions">
@@ -43,7 +60,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section id="logs-section" class="card hidden">
         <h2 class="card-title">Últimos registros</h2>
         <ul id="logs" class="logs"></ul>
       </section>

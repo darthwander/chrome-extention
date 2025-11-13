@@ -10,8 +10,25 @@ const ORIGIN_LABELS = {
   outros: 'Outros',
 };
 
+// Colors per activity (title). Deterministic hashing into a palette
+const ACTIVITY_COLOR_PALETTE = ['#2563eb','#16a34a','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#475569','#84cc16','#f97316','#db2777'];
+const activityColorCache = new Map();
+function colorForActivity(name) {
+  const key = String(name || 'Atividade');
+  if (activityColorCache.has(key)) return activityColorCache.get(key);
+  let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  const color = ACTIVITY_COLOR_PALETTE[h % ACTIVITY_COLOR_PALETTE.length];
+  activityColorCache.set(key, color);
+  return color;
+}
+
 let lastTimelineRows = [];
 const timelineEmptyElement = document.getElementById('timeline-empty');
+const nameInput = document.getElementById('name');
+const emailInput = document.getElementById('email');
+const fromInput = document.getElementById('from');
+const toInput = document.getElementById('to');
+const periodLabel = document.getElementById('period-label');
 const TIMELINE_EMPTY_MESSAGE =
   (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponÃ­vel para exibir.').trim();
 const TIMELINE_LOADING_MESSAGE =
@@ -20,7 +37,12 @@ const TIMELINE_LOADING_MESSAGE =
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  return d.toLocaleString();
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const HH = String(d.getHours()).padStart(2,'0');
+  const MM = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm}/${yy} ${HH}:${MM}`;
 }
 
 function durationSeconds(a, b) {
@@ -54,13 +76,14 @@ async function load() {
       rows.push({ ...current });
     }
 
-    updateTimelineFromRows(rows);
+    updateTimelineFromRows(filterByPeriod(rows));
 
     for (const r of rows) {
       const tr = document.createElement('tr');
       const isRunning = !r.endedAt;
       const endLabel = isRunning ? 'EM ANDAMENTO' : fmtDate(r.endedAt);
-      const durationLabel = isRunning ? '-' : durationSeconds(r.startedAt, r.endedAt);
+      const secondsTotal = isRunning ? null : durationSeconds(r.startedAt, r.endedAt);
+      const durationLabel = isRunning ? '-' : formatDuration(secondsTotal);
 
       const idTd = document.createElement('td');
       idTd.textContent = r.id;
@@ -97,7 +120,7 @@ async function load() {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.className = 'link-button';
-        link.textContent = 'Abrir no Azure';
+        link.textContent = 'Ir';
         actionsTd.appendChild(link);
       } else {
         actionsTd.textContent = 'â€”';
@@ -187,8 +210,8 @@ function buildTimelineRows(rawRows) {
           <div>ID: ${row.id ?? '-'}</div>
           <div>Projeto: ${project}</div>
           <div>Origem: ${ORIGIN_LABELS[origin] ?? origin}</div>
-          <div>InÃ­cio: ${start.toLocaleString('pt-BR', { timeZone: timezone })}</div>
-          <div>Fim: ${row.endedAt ? endDate.toLocaleString('pt-BR', { timeZone: timezone }) : 'Em andamento'}</div>
+          <div>InÃ­cio: ${start.toLocaleString('pt-BR', { timeZone: timezone, year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+          <div>Fim: ${row.endedAt ? endDate.toLocaleString('pt-BR', { timeZone: timezone, year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Em andamento'}</div>
           <div>DuraÃ§Ã£o: ${formatDuration(duration)}</div>
         </div>
       `.trim();
@@ -232,25 +255,26 @@ function renderLegend(rows) {
   const legend = document.getElementById('timeline-legend');
   if (!legend) return;
 
-  const origins = Array.from(new Set(rows.map((row) => row.origin)));
+  // Legend by activity (title)
+  const activities = Array.from(new Set(rows.map((row) => row.title)));
   legend.innerHTML = '';
 
-  if (!origins.length) {
+  if (!activities.length) {
     legend.hidden = true;
     return;
   }
 
   legend.hidden = false;
-  origins.forEach((origin) => {
+  activities.forEach((title) => {
     const item = document.createElement('div');
     item.className = 'legend-item';
 
     const swatch = document.createElement('span');
     swatch.className = 'legend-swatch';
-    swatch.style.backgroundColor = ORIGIN_COLORS[origin] || ORIGIN_COLORS.outros;
+    swatch.style.backgroundColor = colorForActivity(title);
 
     const label = document.createElement('span');
-    label.textContent = ORIGIN_LABELS[origin] ?? origin;
+    label.textContent = title || 'Atividade';
 
     item.appendChild(swatch);
     item.appendChild(label);
@@ -299,7 +323,7 @@ function renderSimpleTimeline(rows) {
       bar.style.left = leftPct + '%';
       bar.style.width = (widthPct <= 0 ? 0.8 : widthPct) + '%';
       bar.style.minWidth = '6px';
-      bar.style.backgroundColor = ORIGIN_COLORS[item.origin] || ORIGIN_COLORS.outros;
+      bar.style.backgroundColor = colorForActivity(item.title);
       if (!item.end) bar.setAttribute('aria-current', 'true');
       track.appendChild(bar);
     });
@@ -317,7 +341,7 @@ function renderSimpleTimeline(rows) {
   // render top time axis with evenly spaced ticks
   if (axisElement) {
     const ticks = 5; // start + 3 mids + end = 5 or adjust
-    const fmt = (d) => d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const fmt = (d) => d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
     axisElement.hidden = false;
     axisElement.innerHTML = '';
     for (let i = 0; i <= ticks; i++) {
@@ -403,8 +427,18 @@ function renderProjectPieFromRows(rawRows) {
     sw.style.backgroundColor = color;
     const label = document.createElement('span');
     label.textContent = `${project} — ${pct.toFixed(0)}%`;
+    const hm = (() => {
+      const mins = Math.round(seconds / 60);
+      const h = String(Math.floor(mins / 60)).padStart(2, '0');
+      const m = String(mins % 60).padStart(2, '0');
+      return `${h}:${m}`;
+    })();
+    const hmSpan = document.createElement('span');
+    hmSpan.className = 'muted';
+    hmSpan.textContent = ` (${hm})`;
     item.appendChild(sw);
     item.appendChild(label);
+    item.appendChild(hmSpan);
     legend.appendChild(item);
   });
 
@@ -412,3 +446,49 @@ function renderProjectPieFromRows(rawRows) {
   wrap.hidden = false;
   if (empty) empty.hidden = true;
 }
+
+function parseLocalDateTime(value) {
+  if (!value) return null;
+  // value like '2025-11-11T20:56'
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function filterByPeriod(rows) {
+  const from = parseLocalDateTime(fromInput?.value);
+  const to = parseLocalDateTime(toInput?.value);
+  if (!from && !to) {
+    periodLabel.textContent = '';
+    return rows;
+  }
+  const fmt = (d) => fmtDate(d);
+  if (from || to) {
+    const startLabel = from ? fmt(from) : 'início';
+    const endLabel = to ? fmt(to) : 'agora';
+    if (periodLabel) periodLabel.textContent = `Período exibido: ${startLabel} a ${endLabel}`;
+  }
+  const fromMs = from ? from.getTime() : -Infinity;
+  const toMs = to ? to.getTime() : Infinity;
+  return rows.filter(r => {
+    const s = r.startedAt ? new Date(r.startedAt).getTime() : NaN;
+    const e = r.endedAt ? new Date(r.endedAt).getTime() : s;
+    if (!Number.isFinite(s)) return false;
+    // include if any overlap with [from,to]
+    return (s <= toMs) && (e >= fromMs);
+  });
+}
+
+function currentPeriodLabel() {
+  const from = parseLocalDateTime(fromInput?.value);
+  const to = parseLocalDateTime(toInput?.value);
+  if (!from && !to) return '';
+  const startLabel = from ? fmtDate(from) : 'início';
+  const endLabel = to ? fmtDate(to) : 'agora';
+  return `${startLabel} a ${endLabel}`;
+}
+
+// Load saved profile on startup
+chrome.storage.local.get(['userName','userEmail'], (vals) => {
+  if (nameInput) nameInput.value = vals.userName || '';
+  if (emailInput) emailInput.value = vals.userEmail || '';
+});

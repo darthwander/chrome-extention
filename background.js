@@ -1,6 +1,8 @@
 const STORAGE_KEYS = {
   CURRENT: "currentTask",
-  LOGS: "logs"
+  LOGS: "logs",
+  USER_NAME: "userName",
+  USER_EMAIL: "userEmail",
 };
 
 async function getStorage(keys) {
@@ -16,9 +18,11 @@ function nowISO() {
 }
 
 async function stopCurrentIfAny(endAtIso) {
-  const { [STORAGE_KEYS.CURRENT]: current, [STORAGE_KEYS.LOGS]: logsRaw } = await getStorage([STORAGE_KEYS.CURRENT, STORAGE_KEYS.LOGS]);
+  const { [STORAGE_KEYS.CURRENT]: current, [STORAGE_KEYS.LOGS]: logsRaw } = await getStorage([
+    STORAGE_KEYS.CURRENT,
+    STORAGE_KEYS.LOGS,
+  ]);
   const logs = logsRaw || [];
-
   if (current && !current.endedAt) {
     const endedAt = endAtIso || nowISO();
     logs.push({ ...current, endedAt });
@@ -39,6 +43,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
       if (msg?.type === "startOrStopForItem") {
+        const { [STORAGE_KEYS.USER_NAME]: userName, [STORAGE_KEYS.USER_EMAIL]: userEmail } = await getStorage([
+          STORAGE_KEYS.USER_NAME,
+          STORAGE_KEYS.USER_EMAIL,
+        ]);
+        const nameOk = Boolean(String(userName || "").trim());
+        const emailOk = Boolean(String(userEmail || "").trim());
+        if (!nameOk || !emailOk) {
+          sendResponse({ ok: false, error: "Perfil ausente: informe nome e email nas opções." });
+          return;
+        }
+
         const item = msg.item;
         const { [STORAGE_KEYS.CURRENT]: current } = await getStorage([STORAGE_KEYS.CURRENT]);
 

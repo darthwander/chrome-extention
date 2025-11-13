@@ -20,15 +20,36 @@ let cachedProfile = { userName: '', userEmail: '' };
 
 function fmtDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (v) => String(v).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (v) => String(v).padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = String(d.getFullYear()).slice(-2);
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  } catch (err) {
+    return '';
+  }
 }
 
 function fmtDateTime(iso) {
   if (!iso) return '-';
-  return fmtDate(iso);
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '-';
+    const pad = (value) => String(value).padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = String(d.getFullYear()).slice(-2);
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  } catch (err) {
+    return '-';
+  }
 }
 
 function truncate(text, maxLength) {
@@ -45,7 +66,7 @@ function showStatus(message, isError = false) {
 function setMenuDisabled(disabled) {
   [refreshBtn, exportBtn, clearBtn, openLogsBtn].forEach((btn) => {
     if (!btn) return;
-    if (disabled) btn.setAttribute('disabled', ''); else btn.removeAttribute('disabled');
+    btn.toggleAttribute('disabled', !!disabled);
     btn.classList.toggle('disabled', !!disabled);
   });
 }
@@ -53,17 +74,17 @@ function setMenuDisabled(disabled) {
 function applyProfileGate(profile) {
   const hasProfile = !!(profile?.userName && profile?.userEmail);
   if (hasProfile) {
-    profilePanel?.classList.add('hidden');
-    statusSection?.classList.remove('hidden');
-    logsSection?.classList.remove('hidden');
+    if (profilePanel) profilePanel.classList.add('hidden');
+    if (statusSection) statusSection.classList.remove('hidden');
+    if (logsSection) logsSection.classList.remove('hidden');
     setMenuDisabled(false);
-    editProfileBtn?.classList.remove('hidden');
+    if (editProfileBtn) editProfileBtn.classList.remove('hidden');
   } else {
-    profilePanel?.classList.remove('hidden');
-    statusSection?.classList.add('hidden');
-    logsSection?.classList.add('hidden');
+    if (profilePanel) profilePanel.classList.remove('hidden');
+    if (statusSection) statusSection.classList.add('hidden');
+    if (logsSection) logsSection.classList.add('hidden');
     setMenuDisabled(true);
-    editProfileBtn?.classList.add('hidden');
+    if (editProfileBtn) editProfileBtn.classList.add('hidden');
   }
 }
 
@@ -81,8 +102,11 @@ function renderLogs(logs) {
   const [maybeCurrent, ...rest] = logs;
   if (maybeCurrent && !maybeCurrent.endedAt) {
     items.push(maybeCurrent);
-    const remaining = 3 - items.length;
-    if (remaining > 0) items.push(...rest.slice(-remaining).reverse());
+    const remainingSlots = 3 - items.length;
+    if (remainingSlots > 0) {
+      const latestRest = rest.slice(-remainingSlots).reverse();
+      items.push(...latestRest);
+    }
   } else {
     items.push(...logs.slice(-3).reverse());
   }
@@ -90,43 +114,79 @@ function renderLogs(logs) {
   items.forEach((log) => {
     const li = document.createElement('li');
     li.className = 'logs-item';
+
     const wrapper = document.createElement('div');
     wrapper.className = 'logs-item-content';
+
     const textContainer = document.createElement('div');
     textContainer.className = 'logs-item-text';
+
     const strong = document.createElement('strong');
     const accessibleTitle = log.title || `registro #${log.id}`;
     const title = truncate(accessibleTitle, 30);
     strong.textContent = `#${log.id} — ${title}`;
+
     const span = document.createElement('span');
     span.className = 'muted';
     const endLabel = log.endedAt ? fmtDateTime(log.endedAt) : 'Em andamento';
     span.textContent = `${fmtDateTime(log.startedAt)} - ${endLabel}`;
+
     textContainer.appendChild(strong);
     textContainer.appendChild(span);
+
     const actionButton = document.createElement('button');
     actionButton.type = 'button';
     actionButton.className = 'logs-item-action';
-    actionButton.innerHTML = '<span aria-hidden="true">↻</span>';
+    actionButton.innerHTML = '<span aria-hidden="true">▶</span>';
     actionButton.setAttribute('aria-label', `Iniciar nova contagem para ${accessibleTitle}`);
     actionButton.title = 'Iniciar nova contagem';
     actionButton.disabled = !log.endedAt;
-    actionButton.addEventListener('click', (ev) => { ev.stopPropagation(); startLogAgain(log); });
+    actionButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      startLogAgain(log);
+    });
+
     wrapper.appendChild(textContainer);
     wrapper.appendChild(actionButton);
+
     li.appendChild(wrapper);
     logsEl.appendChild(li);
   });
 }
 
 function startLogAgain(log) {
-  if (!log || !log.endedAt) return;
-  const payload = { id: log.id, title: log.title, url: log.url, projectName: log.projectName, captureType: log.captureType };
+  if (!log || !log.endedAt) {
+    return;
+  }
+
+  const payload = {
+    id: log.id,
+    title: log.title,
+    url: log.url,
+    projectName: log.projectName,
+    captureType: log.captureType,
+  };
+
   chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: payload }, (res) => {
-    if (chrome.runtime.lastError) { handleError('Falha ao iniciar nova contagem.'); return; }
-    if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
-    if (res.action === 'started') { showStatus(`Iniciado: #${res.started?.id} — ${res.started?.title}`); stopBtn.classList.remove('hidden'); refresh(); }
-    else if (res.action === 'stopped') { showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`); stopBtn.classList.add('hidden'); refresh(); }
+    if (chrome.runtime.lastError) {
+      handleError('Falha ao iniciar nova contagem.');
+      return;
+    }
+
+    if (!res?.ok) {
+      showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
+      return;
+    }
+
+    if (res.action === 'started') {
+      showStatus(`Iniciado: #${res.started?.id} — ${res.started?.title}`);
+      stopBtn.classList.remove('hidden');
+      refresh();
+    } else if (res.action === 'stopped') {
+      showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`);
+      stopBtn.classList.add('hidden');
+      refresh();
+    }
   });
 }
 
@@ -144,55 +204,110 @@ function normalizeExportRow(row) {
     captureType: row.captureType ?? '',
     startedAt: fmtDate(row.startedAt),
     endedAt: fmtDate(row.endedAt),
-    durationSeconds: typeof row.durationSeconds === 'number' && Number.isFinite(row.durationSeconds) ? row.durationSeconds : '',
+    durationSeconds:
+      typeof row.durationSeconds === 'number' && Number.isFinite(row.durationSeconds)
+        ? row.durationSeconds
+        : '',
     url: row.url ?? '',
   };
 }
 
 function refresh() {
-  // Gate first
-  chrome.storage.local.get(['userName','userEmail'], (vals) => {
+  // Gate first, then fetch status only if profile ok
+  chrome.storage.local.get(["userName","userEmail"], (vals) => {
     cachedProfile = { userName: (vals.userName||'').trim(), userEmail: (vals.userEmail||'').trim() };
     applyProfileGate(cachedProfile);
     if (!cachedProfile.userName || !cachedProfile.userEmail) {
-      showStatus('Informe nome e email para começar.');
+      showStatus('Informe nome e email para come�ar.');
       return;
     }
 
     showStatus('Carregando...');
     chrome.runtime.sendMessage({ type: 'getStatus' }, (res) => {
-      if (chrome.runtime.lastError) { handleError('Falha ao obter status.'); return; }
-      if (!res?.ok) { showStatus('Erro ao carregar status.', true); return; }
+      if (chrome.runtime.lastError) {
+        handleError('Falha ao obter status.');
+        return;
+      }
+      if (!res?.ok) {
+        showStatus('Erro ao carregar status.', true);
+        return;
+      }
       const logs = Array.isArray(res.logs) ? res.logs : [];
       currentTask = res.currentTask || null;
       if (currentTask && !currentTask.endedAt) {
-        showStatus(`Em andamento: #${currentTask.id} — ${currentTask.title} (desde ${fmtDate(currentTask.startedAt)})`);
+        showStatus(`Em andamento: #${currentTask.id} � ${currentTask.title} (desde ${fmtDate(currentTask.startedAt)})`);
         stopBtn.classList.remove('hidden');
       } else {
         showStatus('Nenhuma tarefa em andamento.');
         stopBtn.classList.add('hidden');
       }
       const displayLogs = [...logs];
-      if (currentTask && !currentTask.endedAt) displayLogs.unshift(currentTask);
+      if (currentTask && !currentTask.endedAt) {
+        displayLogs.unshift(currentTask);
+      }
       renderLogs(displayLogs);
     });
   });
 }
 
-function openActionsMenu() { actionsMenu.classList.remove('hidden'); actionsToggle.setAttribute('aria-expanded', 'true'); actionsMenu.setAttribute('aria-hidden', 'false'); }
-function closeActionsMenu() { actionsMenu.classList.add('hidden'); actionsToggle.setAttribute('aria-expanded', 'false'); actionsMenu.setAttribute('aria-hidden', 'true'); }
+function openActionsMenu() {
+  actionsMenu.classList.remove('hidden');
+  actionsToggle.setAttribute('aria-expanded', 'true');
+  actionsMenu.setAttribute('aria-hidden', 'false');
+}
 
-actionsToggle.addEventListener('click', (e) => { e.stopPropagation(); if (actionsMenu.classList.contains('hidden')) openActionsMenu(); else closeActionsMenu(); });
-document.addEventListener('click', (e) => { if (!actionsMenu.classList.contains('hidden') && !actionsMenu.contains(e.target) && e.target !== actionsToggle) closeActionsMenu(); });
-actionsMenu.addEventListener('click', (e) => { if (e.target instanceof HTMLElement && e.target.classList.contains('menu-item')) closeActionsMenu(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeActionsMenu(); });
+function closeActionsMenu() {
+  actionsMenu.classList.add('hidden');
+  actionsToggle.setAttribute('aria-expanded', 'false');
+  actionsMenu.setAttribute('aria-hidden', 'true');
+}
+
+actionsToggle.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (actionsMenu.classList.contains('hidden')) {
+    openActionsMenu();
+  } else {
+    closeActionsMenu();
+  }
+});
+
+document.addEventListener('click', (event) => {
+  if (actionsMenu.classList.contains('hidden')) return;
+  if (!actionsMenu.contains(event.target) && event.target !== actionsToggle) {
+    closeActionsMenu();
+  }
+});
+
+actionsMenu.addEventListener('click', (event) => {
+  if (event.target instanceof HTMLElement && event.target.classList.contains('menu-item')) {
+    closeActionsMenu();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeActionsMenu();
+  }
+});
 
 function stopCurrentTask() {
   if (!currentTask) return;
   chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: currentTask }, (res) => {
-    if (chrome.runtime.lastError) { handleError('Falha ao parar tarefa.'); return; }
-    if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
-    if (res.action === 'stopped') { showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`); stopBtn.classList.add('hidden'); refresh(); }
+    if (chrome.runtime.lastError) {
+      handleError('Falha ao parar tarefa.');
+      return;
+    }
+
+    if (!res?.ok) {
+      showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
+      return;
+    }
+
+    if (res.action === 'stopped') {
+      showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`);
+      stopBtn.classList.add('hidden');
+      refresh();
+    }
   });
 }
 
@@ -202,33 +317,46 @@ stopBtn.addEventListener('click', stopCurrentTask);
 exportBtn.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'getExportData' }, (res) => {
     if (chrome.runtime.lastError) { handleError('Falha ao exportar XLSX.'); return; }
-    if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
+    if (!res?.ok) { showStatus(Erro: , true); return; }
     const exportedAt = res.exportedAt;
     const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
     chrome.storage.local.get(['userName','userEmail'], (vals) => {
       const meta = { userName: vals.userName || '', userEmail: vals.userEmail || '' };
       const workbookBytes = ExcelExporter.buildXlsx(rows, exportedAt, meta);
-      const filename = 'azdo-time-tracker-' + ExcelExporter.formatExportFileDate(exportedAt) + '.xlsx';
+      const filename = zdo-time-tracker-.xlsx;
       ExcelExporter.downloadXlsx(filename, workbookBytes);
     });
   });
 });
+});
 
 clearBtn.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'clearLogs' }, (res) => {
-    if (chrome.runtime.lastError) { handleError('Falha ao limpar logs.'); return; }
-    if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
+    if (chrome.runtime.lastError) {
+      handleError('Falha ao limpar logs.');
+      return;
+    }
+    if (!res?.ok) {
+      showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
+      return;
+    }
     refresh();
   });
 });
 
 openLogsBtn.addEventListener('click', () => {
-  if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
-  else window.open(chrome.runtime.getURL('options.html'));
+  if (chrome.runtime.openOptionsPage) {
+    chrome.runtime.openOptionsPage();
+  } else {
+    window.open(chrome.runtime.getURL('options.html'));
+  }
 });
 
+refresh();
+
+
 // Save profile from popup gate
-if (saveProfilePopupBtn) {
+if (typeof saveProfilePopupBtn !== 'undefined' && saveProfilePopupBtn) {
   saveProfilePopupBtn.addEventListener('click', () => {
     const name = (profileNameInput?.value || '').trim();
     const email = (profileEmailInput?.value || '').trim();
@@ -242,18 +370,16 @@ if (saveProfilePopupBtn) {
 }
 
 // Edit profile option in menu
-if (editProfileBtn) {
+if (typeof editProfileBtn !== 'undefined' && editProfileBtn) {
   editProfileBtn.addEventListener('click', () => {
     chrome.storage.local.get(['userName','userEmail'], (vals) => {
       if (profileNameInput) profileNameInput.value = vals.userName || '';
       if (profileEmailInput) profileEmailInput.value = vals.userEmail || '';
-      profilePanel?.classList.remove('hidden');
-      statusSection?.classList.add('hidden');
-      logsSection?.classList.add('hidden');
+      if (profilePanel) profilePanel.classList.remove('hidden');
+      if (statusSection) statusSection.classList.add('hidden');
+      if (logsSection) logsSection.classList.add('hidden');
       setMenuDisabled(true);
     });
   });
 }
-
-refresh();
 
