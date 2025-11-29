@@ -64,6 +64,30 @@
         <h2 class="card-title">Últimos registros</h2>
         <ul id="logs" class="logs"></ul>
       </section>
+
+      <section id="import-section" class="card hidden">
+        <div class="accordion-header">
+          <div>
+            <h2 class="card-title">Importar registros</h2>
+            <p class="subtitle">Traga registros a partir de um arquivo exportado.</p>
+          </div>
+          <div class="accordion-actions">
+            <button id="import-more" type="button" class="btn btn-secondary">Mais...</button>
+            <button id="import-less" type="button" class="btn btn-secondary hidden">Menos...</button>
+          </div>
+        </div>
+
+        <form id="import-form" class="hidden" novalidate>
+          <div class="form-row">
+            <label for="import-file">Arquivo de exportação (XLSX)</label>
+            <input id="import-file" type="file" accept=".xlsx" />
+          </div>
+          <div class="form-row form-actions">
+            <button type="submit" class="btn">Importar</button>
+          </div>
+          <p id="import-feedback" class="subtitle"></p>
+        </form>
+      </section>
     </main>
 
     <script src="exporter.js"></script>
