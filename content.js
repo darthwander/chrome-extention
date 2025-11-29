@@ -67,6 +67,13 @@
       }
     }
 
+    if (isGlpiChangePage()) {
+      const anchor = findGlpiChangeAnchor();
+      if (anchor) {
+        return { anchor, extractItem: extractGlpiChangeItem };
+      }
+    }
+
     return null;
   }
 
@@ -92,10 +99,11 @@
   }
 
   function isGlpiTicketPage() {
-    if (window.location.pathname.includes('/front/ticket.form.php')) return true;
-    if (window.location.pathname.includes('/front/change.form.php')) return true;
-    if (document.querySelector('meta[content*="GLPI"]')) return true;
-    return false;
+    return window.location.pathname.includes('/front/ticket.form.php');
+  }
+
+  function isGlpiChangePage() {
+    return window.location.pathname === '/front/change.form.php';
   }
 
   function findGlpiAnchor() {
@@ -126,6 +134,10 @@
     return fallback;
   }
 
+  function findGlpiChangeAnchor() {
+    return document.querySelector('h3.navigationheader-title');
+  }
+
   function extractGlpiWorkItem() {
     const url = window.location.href;
     const searchParams = new URLSearchParams(window.location.search);
@@ -149,6 +161,47 @@
       url,
       projectName: 'GLPI',
       captureType: 'glpi',
+    };
+  }
+
+  function extractGlpiChangeItem() {
+    const url = window.location.href;
+    const searchParams = new URLSearchParams(window.location.search);
+    let id = searchParams.get('id');
+
+    const headerTitleEl = document.querySelector('h3.navigationheader-title');
+    const headerText = headerTitleEl?.textContent?.trim() || '';
+
+    if (!id) {
+      const headerMatch = headerText.match(/\((\d+)\)/);
+      if (headerMatch) id = headerMatch[1];
+    }
+
+    if (!id) {
+      const titleText = document.querySelector('title')?.textContent || '';
+      const titleMatch = titleText.match(/#?(\d+)/);
+      if (titleMatch) id = titleMatch[1];
+    }
+
+    const pageTitle = (document.querySelector('title')?.textContent || '').trim();
+    let title = headerText || pageTitle || '';
+
+    if (title && id) {
+      const idCleanupRegex = new RegExp(`\\s*\\(?#?${id}\\)?\\s*$`);
+      title = title.replace(idCleanupRegex, '').trim();
+    }
+
+    if (!title && id) title = `Change ${id}`;
+
+    if (!id || !title) return null;
+
+    return {
+      id,
+      title,
+      url,
+      projectName: 'GLPI',
+      captureType: 'glpi',
+      type: 'change',
     };
   }
 
