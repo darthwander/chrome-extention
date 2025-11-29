@@ -93,11 +93,18 @@
 
   function isGlpiTicketPage() {
     if (window.location.pathname.includes('/front/ticket.form.php')) return true;
+    if (window.location.pathname.includes('/front/change.form.php')) return true;
     if (document.querySelector('meta[content*="GLPI"]')) return true;
     return false;
   }
 
   function findGlpiAnchor() {
+    const navbar = document.querySelector('.navbar.navbar-expand-md');
+    if (navbar) {
+      const navActions = navbar.querySelector('.nav.navbar-nav') || navbar.querySelector('.navbar-nav');
+      if (navActions) return navActions;
+    }
+
     const preferred = document.querySelector('.timeline-header.d-flex');
     if (preferred) return preferred;
 
@@ -129,15 +136,10 @@
       if (altId?.value) id = altId.value.trim();
     }
 
-    const titleElement = document.querySelector('.card-title.card-header, .page-title, h1, h2');
-    const baseTitle = titleElement?.textContent?.trim() || '';
-    let title = baseTitle;
-    if (id && baseTitle && !baseTitle.includes(`(${id})`)) {
-      title = `${baseTitle} (${id})`;
-    }
-    if (!title && id) {
-      title = `Ticket ${id}`;
-    }
+    const pageTitle = (document.querySelector('title')?.textContent || '').trim();
+    const headerTitle = document.querySelector('.card-title.card-header, .page-title, h1, h2')?.textContent?.trim();
+    const baseTitle = pageTitle || headerTitle || '';
+    const title = baseTitle || (id ? `Ticket ${id}` : '');
 
     if (!id || !title) return null;
 
