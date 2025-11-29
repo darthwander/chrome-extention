@@ -215,22 +215,49 @@ function getCellText(cell, sharedStrings = []) {
   return t ? (t.textContent || '').trim() : '';
 }
 
-function parseZipEntries(arrayBuffer) {
+async function inflateRaw(compressed) {
+  if (typeof DecompressionStream !== 'function') {
+    throw new Error('Navegador não suporta descompactação de arquivos XLSX.');
+  }
+  const stream = new DecompressionStream('deflate-raw');
+  const writer = stream.writable.getWriter();
+  await writer.write(compressed);
+  await writer.close();
+  const response = new Response(stream.readable);
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
+async function parseZipEntries(arrayBuffer) {
   const bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const decoder = new TextDecoder();
   const entries = {};
   let offset = 0;
   while (offset + 30 <= bytes.length) {
     const sig = view.getUint32(offset, true);
     if (sig !== 0x04034b50) break;
-    const nameLen = view.getUint16(offset + 26, true);
+    const compression = view.getUint16(offset + 8, true);
     const dataLen = view.getUint32(offset + 18, true);
+    const nameLen = view.getUint16(offset + 26, true);
+    const extraLen = view.getUint16(offset + 28, true);
     const nameStart = offset + 30;
-    const dataStart = nameStart + nameLen;
+    const dataStart = nameStart + nameLen + extraLen;
     if (dataStart + dataLen > bytes.length) break;
+
     const nameBytes = bytes.subarray(nameStart, nameStart + nameLen);
-    const name = new TextDecoder().decode(nameBytes);
-    entries[name] = bytes.subarray(dataStart, dataStart + dataLen);
+    const name = decoder.decode(nameBytes);
+    const compressed = bytes.subarray(dataStart, dataStart + dataLen);
+    let contents;
+    if (compression === 0) {
+      contents = compressed;
+    } else if (compression === 8) {
+      contents = await inflateRaw(compressed);
+    } else {
+      throw new Error(`Método de compactação não suportado para ${name}.`);
+    }
+
+    entries[name] = contents;
     offset = dataStart + dataLen;
   }
   return entries;
@@ -416,7 +443,7 @@ async function handleImportSubmit(event) {
 
   try {
     const buffer = await readFileAsArrayBuffer(file);
-    const entries = parseZipEntries(buffer);
+    const entries = await parseZipEntries(buffer);
     const sheetBytes = entries['xl/worksheets/sheet1.xml'];
     if (!sheetBytes) throw new Error('Arquivo inválido ou corrompido.');
     const sheetText = new TextDecoder().decode(sheetBytes);
