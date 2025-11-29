@@ -29,10 +29,31 @@ const emailInput = document.getElementById('email');
 const fromInput = document.getElementById('from');
 const toInput = document.getElementById('to');
 const periodLabel = document.getElementById('period-label');
+const statusElement = document.getElementById('status');
+const saveProfileButton = document.getElementById('save-profile');
+let savedProfile = { userName: '', userEmail: '' };
 const TIMELINE_EMPTY_MESSAGE =
-  (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponÃ­vel para exibir.').trim();
+  (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponível para exibir.').trim();
 const TIMELINE_LOADING_MESSAGE =
-  (timelineEmptyElement?.dataset?.loadingText || 'Carregando grÃ¡fico...').trim();
+  (timelineEmptyElement?.dataset?.loadingText || 'Carregando gráfico...').trim();
+
+function sanitizeProfileInputs() {
+  return {
+    userName: (nameInput?.value || '').trim(),
+    userEmail: (emailInput?.value || '').trim(),
+  };
+}
+
+function updateProfileButtonVisibility(forceVisible = false) {
+  if (!saveProfileButton) return;
+  const { userName, userEmail } = sanitizeProfileInputs();
+  const nameChanged = userName !== savedProfile.userName;
+  const emailChanged = userEmail !== savedProfile.userEmail;
+  const missingProfile = !savedProfile.userName || !savedProfile.userEmail;
+  const isEditing = document.activeElement === nameInput || document.activeElement === emailInput;
+  const shouldShow = forceVisible || missingProfile || nameChanged || emailChanged || isEditing;
+  saveProfileButton.hidden = !shouldShow;
+}
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -54,11 +75,10 @@ function durationSeconds(a, b) {
 async function load() {
   chrome.runtime.sendMessage({ type: 'getStatus' }, (res) => {
     const tbody = document.getElementById('tbody');
-    const status = document.getElementById('status');
     tbody.innerHTML = '';
 
     if (!res?.ok) {
-      status.textContent = 'Erro ao carregar status.';
+      if (statusElement) statusElement.textContent = 'Erro ao carregar status.';
       return;
     }
 
@@ -66,9 +86,9 @@ async function load() {
     const logs = res.logs || [];
 
     if (current && !current.endedAt) {
-      status.textContent = `Em andamento: #${current.id} â€” ${current.title} (desde ${fmtDate(current.startedAt)})`;
+      if (statusElement) statusElement.textContent = `Em andamento: #${current.id} — ${current.title} (desde ${fmtDate(current.startedAt)})`;
     } else {
-      status.textContent = 'Nenhuma tarefa em andamento.';
+      if (statusElement) statusElement.textContent = 'Nenhuma tarefa em andamento.';
     }
 
     const rows = [...logs];
@@ -124,7 +144,7 @@ async function load() {
         link.textContent = 'Ir';
         actionsTd.appendChild(link);
       } else {
-        actionsTd.textContent = 'â€”';
+        actionsTd.textContent = '—';
       }
       tr.appendChild(actionsTd);
 
@@ -141,6 +161,33 @@ if (toInput) { toInput.addEventListener('change', load); toInput.addEventListene
 document.getElementById('clear').addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'clearLogs' }, () => load());
 });
+
+function saveProfile() {
+  const { userName, userEmail } = sanitizeProfileInputs();
+  if (!userName || !userEmail) {
+    if (statusElement) statusElement.textContent = 'Informe nome e email para salvar.';
+    updateProfileButtonVisibility(true);
+    return;
+  }
+
+  chrome.storage.local.set({ userName, userEmail }, () => {
+    savedProfile = { userName, userEmail };
+    if (statusElement) statusElement.textContent = 'Perfil salvo.';
+    updateProfileButtonVisibility(false);
+  });
+}
+
+if (saveProfileButton) {
+  saveProfileButton.addEventListener('click', saveProfile);
+}
+
+if (nameInput) {
+  ['focus', 'input', 'blur', 'change'].forEach((evt) => nameInput.addEventListener(evt, () => updateProfileButtonVisibility()));
+}
+
+if (emailInput) {
+  ['focus', 'input', 'blur', 'change'].forEach((evt) => emailInput.addEventListener(evt, () => updateProfileButtonVisibility()));
+}
 
 function normalizeExportRow(row) {
   return {
@@ -207,16 +254,16 @@ function buildTimelineRows(rawRows) {
 
       const duration = (endDate - start) / 1000;
       const project = row.projectName || 'Sem projeto';
-      const title = row.title || (row.id ? `Item ${row.id}` : 'Item sem tÃ­tulo');
+      const title = row.title || (row.id ? `Item ${row.id}` : 'Item sem título');
       const tooltip = `
         <div>
           <strong>${title}</strong><br />
           <div>ID: ${row.id ?? '-'}</div>
           <div>Projeto: ${project}</div>
           <div>Origem: ${ORIGIN_LABELS[origin] ?? origin}</div>
-          <div>InÃ­cio: ${start.toLocaleString('pt-BR', { timeZone: timezone, year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+          <div>Início: ${start.toLocaleString('pt-BR', { timeZone: timezone, year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
           <div>Fim: ${row.endedAt ? endDate.toLocaleString('pt-BR', { timeZone: timezone, year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Em andamento'}</div>
-          <div>DuraÃ§Ã£o: ${formatDuration(duration)}</div>
+          <div>Duração: ${formatDuration(duration)}</div>
         </div>
       `.trim();
 
@@ -495,4 +542,9 @@ function currentPeriodLabel() {
 chrome.storage.local.get(['userName','userEmail'], (vals) => {
   if (nameInput) nameInput.value = vals.userName || '';
   if (emailInput) emailInput.value = vals.userEmail || '';
+  savedProfile = {
+    userName: (vals.userName || '').trim(),
+    userEmail: (vals.userEmail || '').trim(),
+  };
+  updateProfileButtonVisibility();
 });
