@@ -1,8 +1,9 @@
-const statusEl = document.getElementById('status');
+﻿const statusEl = document.getElementById('status');
 const logsEl = document.getElementById('logs');
 const stopBtn = document.getElementById('stop');
 const refreshBtn = document.getElementById('refresh');
 const exportBtn = document.getElementById('export');
+const exportJsonBtn = document.getElementById('export-json');
 const clearBtn = document.getElementById('clear');
 const openLogsBtn = document.getElementById('open-logs');
 const editProfileBtn = document.getElementById('edit-profile');
@@ -66,7 +67,7 @@ function setImportFeedback(message, isError = false) {
 }
 
 function setMenuDisabled(disabled) {
-  [refreshBtn, exportBtn, clearBtn, openLogsBtn].forEach((btn) => {
+  [refreshBtn, exportBtn, exportJsonBtn, clearBtn, openLogsBtn].forEach((btn) => {
     if (!btn) return;
     if (disabled) btn.setAttribute('disabled', ''); else btn.removeAttribute('disabled');
     btn.classList.toggle('disabled', !!disabled);
@@ -178,6 +179,15 @@ function readFileAsArrayBuffer(file) {
     reader.onload = () => resolve(reader.result);
     reader.onerror = () => reject(reader.error || new Error('Falha ao ler o arquivo.'));
     reader.readAsArrayBuffer(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Falha ao ler o arquivo.'));
+    reader.readAsText(file, 'utf-8');
   });
 }
 
@@ -333,13 +343,30 @@ async function handleImportSubmit(event) {
   setImportFeedback('Lendo arquivo...');
 
   try {
-    const buffer = await readFileAsArrayBuffer(file);
-    const entries = parseZipEntries(buffer);
-    const sheetBytes = entries['xl/worksheets/sheet1.xml'];
-    if (!sheetBytes) throw new Error('Arquivo inválido ou corrompido.');
-    const sheetText = new TextDecoder().decode(sheetBytes);
-    const rawRows = extractRowsFromSheet(sheetText);
-    const importedRows = sanitizeImportedRows(rawRows);
+    let importedRows = [];
+    const lowerName = (file.name || '').toLowerCase();
+    const isJson = lowerName.endsWith('.json') || file.type === 'application/json';
+
+    if (isJson) {
+      const text = await readFileAsText(file);
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error('JSON invalido.');
+      }
+      const rows = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.rows) ? parsed.rows : null);
+      if (!rows) throw new Error('Arquivo JSON sem campo "rows".');
+      importedRows = sanitizeImportedRows(rows);
+    } else {
+      const buffer = await readFileAsArrayBuffer(file);
+      const entries = parseZipEntries(buffer);
+      const sheetBytes = entries['xl/worksheets/sheet1.xml'];
+      if (!sheetBytes) throw new Error('Arquivo invalido ou corrompido.');
+      const sheetText = new TextDecoder().decode(sheetBytes);
+      const rawRows = extractRowsFromSheet(sheetText);
+      importedRows = sanitizeImportedRows(rawRows);
+    }
     if (!importedRows.length) {
       throw new Error('Nenhuma linha encontrada para importar.');
     }
@@ -394,11 +421,21 @@ function normalizeExportRow(row) {
     title: row.title ?? '',
     projectName: row.projectName ?? '',
     captureType: row.captureType ?? '',
-    startedAt: fmtDate(row.startedAt),
-    endedAt: fmtDate(row.endedAt),
+    startedAt: row.startedAt ?? '',
+    endedAt: row.endedAt ?? '',
     durationSeconds: typeof row.durationSeconds === 'number' && Number.isFinite(row.durationSeconds) ? row.durationSeconds : '',
     url: row.url ?? '',
   };
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function refresh() {
@@ -470,6 +507,23 @@ exportBtn.addEventListener('click', () => {
   });
 });
 
+if (exportJsonBtn) {
+  exportJsonBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'getExportData' }, (res) => {
+      if (chrome.runtime.lastError) { handleError('Falha ao exportar JSON.'); return; }
+      if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
+      const exportedAt = res.exportedAt;
+      const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
+      chrome.storage.local.get(['userName','userEmail'], (vals) => {
+        const meta = { userName: vals.userName || '', userEmail: vals.userEmail || '' };
+        const payload = { exportedAt, ...meta, rows };
+        const filename = 'azdo-time-tracker-' + ExcelExporter.formatExportFileDate(exportedAt) + '.json';
+        downloadJson(filename, payload);
+      });
+    });
+  });
+}
+
 clearBtn.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'clearLogs' }, (res) => {
     if (chrome.runtime.lastError) { handleError('Falha ao limpar logs.'); return; }
@@ -512,4 +566,5 @@ if (editProfileBtn) {
 }
 
 refresh();
+
 

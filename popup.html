@@ -27,6 +27,7 @@
           <div id="actions-menu" class="actions-menu hidden" role="menu" aria-hidden="true">
             <button id="refresh" type="button" class="menu-item" role="menuitem" disabled>Atualizar</button>
             <button id="export" type="button" class="menu-item" role="menuitem" disabled>Exportar XLSX</button>
+            <button id="export-json" type="button" class="menu-item" role="menuitem" disabled>Exportar JSON</button>
             <button id="clear" type="button" class="menu-item" role="menuitem" disabled>Limpar Logs</button>
             <button id="open-logs" type="button" class="menu-item" role="menuitem" disabled>Abrir lista completa</button>
             <button id="edit-profile" type="button" class="menu-item hidden" role="menuitem">Editar nome e email</button>
@@ -79,8 +80,8 @@
 
         <form id="import-form" class="hidden" novalidate>
           <div class="form-row">
-            <label for="import-file">Arquivo de exportação (XLSX)</label>
-            <input id="import-file" type="file" accept=".xlsx" />
+            <label for="import-file">Arquivo de exportação (XLSX ou JSON)</label>
+            <input id="import-file" type="file" accept=".xlsx,.json,application/json" />
           </div>
           <div class="form-row form-actions">
             <button type="submit" class="btn">Importar</button>
