@@ -39,6 +39,35 @@ async function startTask(item) {
   return current;
 }
 
+function normalizeImportRow(row) {
+  return {
+    id: row.id ?? '',
+    title: row.title ?? '',
+    projectName: row.projectName ?? '',
+    captureType: row.captureType ?? '',
+    startedAt: row.startedAt ?? '',
+    endedAt: row.endedAt ?? '',
+    durationSeconds: Number.isFinite(row.durationSeconds) ? row.durationSeconds : undefined,
+    url: row.url ?? '',
+  };
+}
+
+function validateRowDates(row) {
+  const started = new Date(row.startedAt);
+  const ended = new Date(row.endedAt);
+  if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) {
+    return { ok: false, error: 'Datas inválidas em um ou mais registros.' };
+  }
+  if (started >= ended) {
+    return { ok: false, error: 'Registro com horário de início igual ou após o fim.' };
+  }
+  return { ok: true, started, ended };
+}
+
+function intervalsOverlap(a, b) {
+  return a.started < b.ended && b.started < a.ended;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
@@ -111,6 +140,50 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
 
         sendResponse({ ok: true, rows, exportedAt });
+        return;
+      }
+
+      if (msg?.type === "importLogs") {
+        const incomingRows = Array.isArray(msg.rows) ? msg.rows.map(normalizeImportRow) : [];
+        if (!incomingRows.length) { sendResponse({ ok: false, error: "Nenhum registro para importar." }); return; }
+
+        const parsedIntervals = [];
+        for (const row of incomingRows) {
+          const validation = validateRowDates(row);
+          if (!validation.ok) { sendResponse({ ok: false, error: validation.error }); return; }
+          parsedIntervals.push({ ...row, ...validation });
+        }
+
+        const { [STORAGE_KEYS.LOGS]: logsRaw, [STORAGE_KEYS.CURRENT]: current } = await getStorage([
+          STORAGE_KEYS.LOGS,
+          STORAGE_KEYS.CURRENT,
+        ]);
+        const existingLogs = Array.isArray(logsRaw) ? logsRaw : [];
+        const existingIntervals = existingLogs
+          .map((log) => ({ ...log, ...validateRowDates(log) }))
+          .filter((res) => res.ok)
+          .map((item) => ({ ...item, started: item.started, ended: item.ended }));
+
+        if (current) {
+          const started = new Date(current.startedAt);
+          const ended = new Date(current.endedAt || new Date());
+          if (!Number.isNaN(started.getTime()) && !Number.isNaN(ended.getTime())) {
+            existingIntervals.push({ ...current, started, ended });
+          }
+        }
+
+        for (const imp of parsedIntervals) {
+          for (const ex of existingIntervals) {
+            if (intervalsOverlap(imp, ex)) {
+              sendResponse({ ok: false, error: "Os registros importados conflitam com registros existentes." });
+              return;
+            }
+          }
+        }
+
+        const updatedLogs = [...existingLogs, ...incomingRows].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt));
+        await setStorage({ [STORAGE_KEYS.LOGS]: updatedLogs });
+        sendResponse({ ok: true, count: incomingRows.length });
         return;
       }
 
