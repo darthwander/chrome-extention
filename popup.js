@@ -14,9 +14,26 @@ const profileEmailInput = document.getElementById('profile-email');
 const saveProfilePopupBtn = document.getElementById('save-profile-popup');
 const statusSection = document.getElementById('status-section');
 const logsSection = document.getElementById('logs-section');
+const importSection = document.getElementById('import-section');
+const importMoreBtn = document.getElementById('import-more');
+const importLessBtn = document.getElementById('import-less');
+const importForm = document.getElementById('import-form');
+const importFileInput = document.getElementById('import-file');
+const importFeedback = document.getElementById('import-feedback');
 
 let currentTask = null;
 let cachedProfile = { userName: '', userEmail: '' };
+
+const REQUIRED_COLUMNS = {
+  id: 'ID',
+  title: 'Título',
+  projectName: 'Projeto',
+  captureType: 'Origem',
+  startedAt: 'Início',
+  endedAt: 'Fim',
+  durationSeconds: 'Duração (s)',
+  url: 'URL',
+};
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -42,6 +59,12 @@ function showStatus(message, isError = false) {
   statusEl.classList.toggle('error', isError);
 }
 
+function setImportFeedback(message, isError = false) {
+  if (!importFeedback) return;
+  importFeedback.textContent = message || '';
+  importFeedback.classList.toggle('error', isError);
+}
+
 function setMenuDisabled(disabled) {
   [refreshBtn, exportBtn, clearBtn, openLogsBtn].forEach((btn) => {
     if (!btn) return;
@@ -56,12 +79,14 @@ function applyProfileGate(profile) {
     profilePanel?.classList.add('hidden');
     statusSection?.classList.remove('hidden');
     logsSection?.classList.remove('hidden');
+    importSection?.classList.remove('hidden');
     setMenuDisabled(false);
     editProfileBtn?.classList.remove('hidden');
   } else {
     profilePanel?.classList.remove('hidden');
     statusSection?.classList.add('hidden');
     logsSection?.classList.add('hidden');
+    importSection?.classList.add('hidden');
     setMenuDisabled(true);
     editProfileBtn?.classList.add('hidden');
   }
@@ -136,6 +161,233 @@ function handleError(defaultMessage) {
   showStatus(`Erro: ${message || 'desconhecido'}`, true);
 }
 
+function toggleImportForm(show) {
+  if (!importForm || !importMoreBtn || !importLessBtn) return;
+  importForm.classList.toggle('hidden', !show);
+  importMoreBtn.classList.toggle('hidden', show);
+  importLessBtn.classList.toggle('hidden', !show);
+  if (!show && importFileInput) {
+    importFileInput.value = '';
+    setImportFeedback('');
+  }
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Falha ao ler o arquivo.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function columnIndexFromRef(ref) {
+  const match = /^([A-Z]+)/i.exec(ref || '');
+  if (!match) return null;
+  const letters = match[1].toUpperCase();
+  let idx = 0;
+  for (let i = 0; i < letters.length; i += 1) {
+    idx = idx * 26 + (letters.charCodeAt(i) - 64);
+  }
+  return idx - 1;
+}
+
+function getCellText(cell) {
+  const v = cell.querySelector('v');
+  if (v) return (v.textContent || '').trim();
+  const t = cell.querySelector('is > t');
+  return t ? (t.textContent || '').trim() : '';
+}
+
+function parseZipEntries(arrayBuffer) {
+  const bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const entries = {};
+  let offset = 0;
+  while (offset + 30 <= bytes.length) {
+    const sig = view.getUint32(offset, true);
+    if (sig !== 0x04034b50) break;
+    const nameLen = view.getUint16(offset + 26, true);
+    const dataLen = view.getUint32(offset + 18, true);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + nameLen;
+    if (dataStart + dataLen > bytes.length) break;
+    const nameBytes = bytes.subarray(nameStart, nameStart + nameLen);
+    const name = new TextDecoder().decode(nameBytes);
+    entries[name] = bytes.subarray(dataStart, dataStart + dataLen);
+    offset = dataStart + dataLen;
+  }
+  return entries;
+}
+
+function extractRowsFromSheet(xmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  const rowNodes = Array.from(doc.getElementsByTagName('row'));
+  if (!rowNodes.length) throw new Error('Arquivo sem linhas para importar.');
+
+  const headerRow = rowNodes.find((row) => row.getAttribute('r') === '2') || rowNodes[0];
+  const dataRows = rowNodes.filter((row) => row !== headerRow);
+
+  function readRow(rowEl) {
+    const cells = Array.from(rowEl.getElementsByTagName('c'));
+    const values = new Map();
+    cells.forEach((cell, idx) => {
+      const ref = cell.getAttribute('r');
+      const colIdx = ref ? columnIndexFromRef(ref) : idx;
+      if (colIdx === null) return;
+      values.set(colIdx, getCellText(cell));
+    });
+    return values;
+  }
+
+  const headerValues = readRow(headerRow);
+  const columnIndexes = {};
+  Object.entries(REQUIRED_COLUMNS).forEach(([key, title]) => {
+    for (const [colIdx, val] of headerValues.entries()) {
+      if ((val || '').trim() === title) {
+        columnIndexes[key] = colIdx;
+        break;
+      }
+    }
+  });
+
+  const missingColumns = Object.entries(REQUIRED_COLUMNS)
+    .filter(([key]) => typeof columnIndexes[key] !== 'number')
+    .map(([, title]) => title);
+  if (missingColumns.length) {
+    throw new Error(`Colunas obrigatórias ausentes: ${missingColumns.join(', ')}.`);
+  }
+
+  const rows = dataRows.map((row) => readRow(row)).map((values) => {
+    const result = {};
+    Object.entries(columnIndexes).forEach(([key, idx]) => {
+      result[key] = values.get(idx) || '';
+    });
+    return result;
+  });
+
+  return rows.filter((row) => Object.values(row).some((val) => String(val || '').trim()));
+}
+
+function validateDateRange(row) {
+  const started = new Date(row.startedAt);
+  const ended = new Date(row.endedAt);
+  if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) {
+    throw new Error(`Datas inválidas para o registro "${row.title || row.id || 'sem título'}".`);
+  }
+  if (started >= ended) {
+    throw new Error(`Período inválido para o registro "${row.title || row.id || 'sem título'}".`);
+  }
+  return { started, ended };
+}
+
+function intervalsOverlap(a, b) {
+  return a.started < b.ended && b.started < a.ended;
+}
+
+function hasInternalOverlap(records) {
+  const sorted = [...records].sort((a, b) => a.started - b.started);
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (intervalsOverlap(sorted[i - 1], sorted[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function findOverlapWithExisting(imported, existing) {
+  for (const imp of imported) {
+    for (const ex of existing) {
+      if (intervalsOverlap(imp, ex)) {
+        return { imported: imp, existing: ex };
+      }
+    }
+  }
+  return null;
+}
+
+function sanitizeImportedRows(rawRows) {
+  return rawRows.map((row) => ({
+    id: String(row.id || '').trim(),
+    title: String(row.title || '').trim(),
+    projectName: String(row.projectName || '').trim(),
+    captureType: String(row.captureType || '').trim(),
+    startedAt: String(row.startedAt || '').trim(),
+    endedAt: String(row.endedAt || '').trim(),
+    durationSeconds: Number.parseInt(row.durationSeconds, 10),
+    url: String(row.url || '').trim(),
+  }));
+}
+
+async function handleImportSubmit(event) {
+  event.preventDefault();
+  setImportFeedback('');
+
+  if (!importFileInput || !importFileInput.files?.length) {
+    setImportFeedback('Selecione um arquivo para importar.', true);
+    return;
+  }
+
+  const file = importFileInput.files[0];
+  setImportFeedback('Lendo arquivo...');
+
+  try {
+    const buffer = await readFileAsArrayBuffer(file);
+    const entries = parseZipEntries(buffer);
+    const sheetBytes = entries['xl/worksheets/sheet1.xml'];
+    if (!sheetBytes) throw new Error('Arquivo inválido ou corrompido.');
+    const sheetText = new TextDecoder().decode(sheetBytes);
+    const rawRows = extractRowsFromSheet(sheetText);
+    const importedRows = sanitizeImportedRows(rawRows);
+    if (!importedRows.length) {
+      throw new Error('Nenhuma linha encontrada para importar.');
+    }
+
+    const intervals = importedRows.map((row) => ({ ...row, ...validateDateRange(row) }));
+    if (hasInternalOverlap(intervals)) {
+      throw new Error('Há conflitos de horário entre os registros importados.');
+    }
+
+    chrome.runtime.sendMessage({ type: 'getStatus' }, (res) => {
+      if (!res?.ok) { setImportFeedback('Falha ao validar registros existentes.', true); return; }
+      const existing = [];
+      const logs = Array.isArray(res.logs) ? res.logs : [];
+      logs.forEach((log) => {
+        const started = new Date(log.startedAt);
+        const ended = new Date(log.endedAt || log.startedAt);
+        if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return;
+        existing.push({ ...log, started, ended });
+      });
+      if (res.currentTask) {
+        const started = new Date(res.currentTask.startedAt);
+        const ended = new Date(res.currentTask.endedAt || new Date());
+        if (!Number.isNaN(started.getTime()) && !Number.isNaN(ended.getTime())) {
+          existing.push({ ...res.currentTask, started, ended });
+        }
+      }
+
+      const overlap = findOverlapWithExisting(intervals, existing);
+      if (overlap) {
+        const label = overlap.existing.title || overlap.existing.id || 'registro existente';
+        setImportFeedback(`Conflito com ${label}. Ajuste os horários e tente novamente.`, true);
+        return;
+      }
+
+      setImportFeedback('Importando registros...');
+      chrome.runtime.sendMessage({ type: 'importLogs', rows: importedRows }, (importRes) => {
+        if (chrome.runtime.lastError) { setImportFeedback('Falha ao importar registros.', true); return; }
+        if (!importRes?.ok) { setImportFeedback(importRes?.error || 'Importação não realizada.', true); return; }
+        setImportFeedback(`Importação concluída (${importRes.count} registros).`);
+        toggleImportForm(false);
+        refresh();
+      });
+    });
+  } catch (err) {
+    setImportFeedback(err?.message || 'Falha ao importar arquivo.', true);
+  }
+}
+
 function normalizeExportRow(row) {
   return {
     id: row.id ?? '',
@@ -186,6 +438,10 @@ actionsToggle.addEventListener('click', (e) => { e.stopPropagation(); if (action
 document.addEventListener('click', (e) => { if (!actionsMenu.classList.contains('hidden') && !actionsMenu.contains(e.target) && e.target !== actionsToggle) closeActionsMenu(); });
 actionsMenu.addEventListener('click', (e) => { if (e.target instanceof HTMLElement && e.target.classList.contains('menu-item')) closeActionsMenu(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeActionsMenu(); });
+
+if (importMoreBtn) importMoreBtn.addEventListener('click', () => toggleImportForm(true));
+if (importLessBtn) importLessBtn.addEventListener('click', () => toggleImportForm(false));
+if (importForm) importForm.addEventListener('submit', handleImportSubmit);
 
 function stopCurrentTask() {
   if (!currentTask) return;
