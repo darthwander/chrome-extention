@@ -29,3 +29,7 @@ Extensão que injeta um botão em modais de itens de trabalho suportados (como A
 ## Limitações
 - Somente captura do modal de Work Item.
 - Não envia dados para servidor; tudo em `chrome.storage.local`.
+
+## Envio manual para Hey Gestor
+- No `options.html`, use o botão **Enviar para Hey Gestor** para mandar os registros finalizados para a rota `/work-logs/import`.
+- O login é feito automaticamente com `demo@example.com` / `password` (via `/auth/login`) e o corpo segue a documentação fornecida.

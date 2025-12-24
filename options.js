@@ -32,6 +32,7 @@ const periodLabel = document.getElementById('period-label');
 const statusElement = document.getElementById('status');
 const saveProfileButton = document.getElementById('save-profile');
 let savedProfile = { userName: '', userEmail: '' };
+const sendHeyButton = document.getElementById('send-hey');
 const TIMELINE_EMPTY_MESSAGE =
   (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponível para exibir.').trim();
 const TIMELINE_LOADING_MESSAGE =
@@ -153,10 +154,26 @@ async function load() {
   });
 }
 
+function sendToHeyGestor() {
+  if (statusElement) statusElement.textContent = 'Enviando para Hey Gestor...';
+  chrome.runtime.sendMessage({ type: 'pushHeyGestor' }, (res) => {
+    if (chrome.runtime.lastError) {
+      if (statusElement) statusElement.textContent = 'Falha ao enviar: ' + (chrome.runtime.lastError.message || '');
+      return;
+    }
+    if (!res?.ok) {
+      if (statusElement) statusElement.textContent = 'Erro ao enviar: ' + (res?.error || 'desconhecido');
+      return;
+    }
+    if (statusElement) statusElement.textContent = 'Enviado para Hey Gestor.';
+  });
+}
+
 document.getElementById('refresh').addEventListener('click', load);
 // Aplicar filtro automaticamente quando datas mudarem
 if (fromInput) { fromInput.addEventListener('change', load); fromInput.addEventListener('input', load); }
 if (toInput) { toInput.addEventListener('change', load); toInput.addEventListener('input', load); }
+if (sendHeyButton) { sendHeyButton.addEventListener('click', sendToHeyGestor); }
 
 document.getElementById('clear').addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'clearLogs' }, () => load());
