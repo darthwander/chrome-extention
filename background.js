@@ -1,8 +1,10 @@
 const STORAGE_KEYS = {
   CURRENT: "currentTask",
   LOGS: "logs",
-  USER_NAME: "userName",
   USER_EMAIL: "userEmail",
+  USER_PASSWORD: "userPassword",
+  HEY_TOKEN: "heyToken",
+  HEY_TOKEN_EMAIL: "heyTokenEmail",
 };
 
 const HEYGESTOR_DEFAULT_BASE_URL = "http://localhost:8000/api/v1";
@@ -155,13 +157,21 @@ async function markLogsAsSent(indexes) {
 }
 
 async function loginHeyGestor(baseUrl) {
+  const { [STORAGE_KEYS.USER_EMAIL]: userEmail, [STORAGE_KEYS.USER_PASSWORD]: userPassword } = await getStorage([
+    STORAGE_KEYS.USER_EMAIL,
+    STORAGE_KEYS.USER_PASSWORD,
+  ]);
+  if (!userEmail || !userPassword) {
+    throw new Error("Email ou senha não configurados.");
+  }
+
   const endpoint = `${sanitizeBaseUrl(baseUrl)}/auth/login`;
   const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      email: "demo@example.com",
-      password: "password",
+      email: userEmail,
+      password: userPassword,
       device_name: "chrome-ext",
     }),
   });
@@ -172,7 +182,31 @@ async function loginHeyGestor(baseUrl) {
   const data = await res.json();
   const token = data?.data?.token;
   if (!token) throw new Error("Token ausente na resposta de login.");
-  return token;
+  await setStorage({ [STORAGE_KEYS.HEY_TOKEN]: token, [STORAGE_KEYS.HEY_TOKEN_EMAIL]: userEmail });
+  return { token, email: userEmail };
+}
+
+async function ensureHeyGestorToken() {
+  const { [STORAGE_KEYS.HEY_TOKEN]: token, [STORAGE_KEYS.HEY_TOKEN_EMAIL]: tokenEmail, [STORAGE_KEYS.USER_EMAIL]: userEmail } =
+    await getStorage([STORAGE_KEYS.HEY_TOKEN, STORAGE_KEYS.HEY_TOKEN_EMAIL, STORAGE_KEYS.USER_EMAIL]);
+  if (!token || !userEmail || tokenEmail !== userEmail) {
+    return loginHeyGestor(HEYGESTOR_DEFAULT_BASE_URL);
+  }
+
+  try {
+    const res = await fetch(`${HEYGESTOR_DEFAULT_BASE_URL}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Token inválido");
+    const data = await res.json();
+    const emailFromMe = data?.data?.email || data?.email;
+    if (emailFromMe && emailFromMe !== userEmail) {
+      throw new Error("Token pertence a outro usuário");
+    }
+    return { token, email: emailFromMe || userEmail };
+  } catch {
+    return loginHeyGestor(HEYGESTOR_DEFAULT_BASE_URL);
+  }
 }
 
 async function pushLogsToHeyGestor() {
@@ -182,8 +216,9 @@ async function pushLogsToHeyGestor() {
     return { ok: false, error: "Nenhum registro finalizado para enviar." };
   }
 
-  const token = await loginHeyGestor(baseUrl);
-  const { [STORAGE_KEYS.USER_EMAIL]: userEmail } = await getStorage([STORAGE_KEYS.USER_EMAIL]);
+  const { token, email: confirmedEmail } = await ensureHeyGestorToken();
+  const { [STORAGE_KEYS.USER_EMAIL]: storedEmail } = await getStorage([STORAGE_KEYS.USER_EMAIL]);
+  const userEmail = confirmedEmail || storedEmail || "";
   const endpoint = `${sanitizeBaseUrl(baseUrl)}/work-logs/import`;
   const body = { exportedAt, userEmail: userEmail ?? "", rows };
 
@@ -196,12 +231,17 @@ async function pushLogsToHeyGestor() {
     body: JSON.stringify(body),
   });
 
+  let data = null;
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Envio falhou (HTTP ${res.status}): ${text?.slice(0, 200) || "sem corpo"}`);
   }
 
-  const data = await res.json();
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
   await markLogsAsSent(indexes);
   return { ok: true, summary: data?.data?.summary ?? null };
 }
@@ -210,14 +250,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
       if (msg?.type === "startOrStopForItem") {
-        const { [STORAGE_KEYS.USER_NAME]: userName, [STORAGE_KEYS.USER_EMAIL]: userEmail } = await getStorage([
-          STORAGE_KEYS.USER_NAME,
+        const { [STORAGE_KEYS.USER_EMAIL]: userEmail, [STORAGE_KEYS.USER_PASSWORD]: userPassword } = await getStorage([
           STORAGE_KEYS.USER_EMAIL,
+          STORAGE_KEYS.USER_PASSWORD,
         ]);
-        const nameOk = Boolean(String(userName || "").trim());
         const emailOk = Boolean(String(userEmail || "").trim());
-        if (!nameOk || !emailOk) {
-          sendResponse({ ok: false, error: "Perfil ausente: informe nome e email nas opções." });
+        const passOk = Boolean(String(userPassword || "").trim());
+        if (!emailOk || !passOk) {
+          sendResponse({ ok: false, error: "Perfil ausente: informe email e senha nas opções." });
           return;
         }
 

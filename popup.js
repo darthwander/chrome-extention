@@ -10,8 +10,8 @@ const editProfileBtn = document.getElementById('edit-profile');
 const actionsToggle = document.getElementById('actions-toggle');
 const actionsMenu = document.getElementById('actions-menu');
 const profilePanel = document.getElementById('profile-panel');
-const profileNameInput = document.getElementById('profile-name');
 const profileEmailInput = document.getElementById('profile-email');
+const profilePasswordInput = document.getElementById('profile-password');
 const saveProfilePopupBtn = document.getElementById('save-profile-popup');
 const statusSection = document.getElementById('status-section');
 const logsSection = document.getElementById('logs-section');
@@ -23,7 +23,7 @@ const importFileInput = document.getElementById('import-file');
 const importFeedback = document.getElementById('import-feedback');
 
 let currentTask = null;
-let cachedProfile = { userName: '', userEmail: '' };
+let cachedProfile = { userEmail: '', userPassword: '' };
 
 const REQUIRED_COLUMNS = {
   id: 'ID',
@@ -75,7 +75,7 @@ function setMenuDisabled(disabled) {
 }
 
 function applyProfileGate(profile) {
-  const hasProfile = !!(profile?.userName && profile?.userEmail);
+  const hasProfile = !!(profile?.userEmail && profile?.userPassword);
   if (hasProfile) {
     profilePanel?.classList.add('hidden');
     statusSection?.classList.remove('hidden');
@@ -440,11 +440,11 @@ function downloadJson(filename, data) {
 
 function refresh() {
   // Gate first
-  chrome.storage.local.get(['userName','userEmail'], (vals) => {
-    cachedProfile = { userName: (vals.userName||'').trim(), userEmail: (vals.userEmail||'').trim() };
+  chrome.storage.local.get(['userEmail','userPassword'], (vals) => {
+    cachedProfile = { userEmail: (vals.userEmail||'').trim(), userPassword: (vals.userPassword||'').trim() };
     applyProfileGate(cachedProfile);
-    if (!cachedProfile.userName || !cachedProfile.userEmail) {
-      showStatus('Informe nome e email para começar.');
+    if (!cachedProfile.userEmail || !cachedProfile.userPassword) {
+      showStatus('Informe email e senha para começar.');
       return;
     }
 
@@ -498,8 +498,8 @@ exportBtn.addEventListener('click', () => {
     if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
     const exportedAt = res.exportedAt;
     const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
-    chrome.storage.local.get(['userName','userEmail'], (vals) => {
-      const meta = { userName: vals.userName || '', userEmail: vals.userEmail || '' };
+    chrome.storage.local.get(['userEmail'], (vals) => {
+      const meta = { userName: '', userEmail: vals.userEmail || '' };
       const workbookBytes = ExcelExporter.buildXlsx(rows, exportedAt, meta);
       const filename = 'azdo-time-tracker-' + ExcelExporter.formatExportFileDate(exportedAt) + '.xlsx';
       ExcelExporter.downloadXlsx(filename, workbookBytes);
@@ -514,13 +514,13 @@ if (exportJsonBtn) {
       if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
       const exportedAt = res.exportedAt;
       const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
-      chrome.storage.local.get(['userName','userEmail'], (vals) => {
-        const meta = { userName: vals.userName || '', userEmail: vals.userEmail || '' };
-        const payload = { exportedAt, ...meta, rows };
-        const filename = 'azdo-time-tracker-' + ExcelExporter.formatExportFileDate(exportedAt) + '.json';
-        downloadJson(filename, payload);
-      });
+    chrome.storage.local.get(['userEmail'], (vals) => {
+      const meta = { userName: '', userEmail: vals.userEmail || '' };
+      const payload = { exportedAt, ...meta, rows };
+      const filename = 'azdo-time-tracker-' + ExcelExporter.formatExportFileDate(exportedAt) + '.json';
+      downloadJson(filename, payload);
     });
+  });
   });
 }
 
@@ -540,11 +540,11 @@ openLogsBtn.addEventListener('click', () => {
 // Save profile from popup gate
 if (saveProfilePopupBtn) {
   saveProfilePopupBtn.addEventListener('click', () => {
-    const name = (profileNameInput?.value || '').trim();
     const email = (profileEmailInput?.value || '').trim();
-    if (!name || !email) { alert('Informe nome e email.'); return; }
-    chrome.storage.local.set({ userName: name, userEmail: email }, () => {
-      applyProfileGate({ userName: name, userEmail: email });
+    const password = (profilePasswordInput?.value || '').trim();
+    if (!email || !password) { alert('Informe email e senha.'); return; }
+    chrome.storage.local.set({ userEmail: email, userPassword: password }, () => {
+      applyProfileGate({ userEmail: email, userPassword: password });
       showStatus('Perfil salvo.');
       refresh();
     });
@@ -554,9 +554,9 @@ if (saveProfilePopupBtn) {
 // Edit profile option in menu
 if (editProfileBtn) {
   editProfileBtn.addEventListener('click', () => {
-    chrome.storage.local.get(['userName','userEmail'], (vals) => {
-      if (profileNameInput) profileNameInput.value = vals.userName || '';
+    chrome.storage.local.get(['userEmail','userPassword'], (vals) => {
       if (profileEmailInput) profileEmailInput.value = vals.userEmail || '';
+      if (profilePasswordInput) profilePasswordInput.value = vals.userPassword || '';
       profilePanel?.classList.remove('hidden');
       statusSection?.classList.add('hidden');
       logsSection?.classList.add('hidden');

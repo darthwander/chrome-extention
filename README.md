@@ -32,4 +32,4 @@ Extensão que injeta um botão em modais de itens de trabalho suportados (como A
 
 ## Envio manual para Hey Gestor
 - No `options.html`, use o botão **Enviar para Hey Gestor** para mandar os registros finalizados para a rota `/work-logs/import`.
-- O login é feito automaticamente com `demo@example.com` / `password` (via `/auth/login`) e o corpo segue a documentação fornecida.
+- O login é feito automaticamente via `/auth/login`, usando o email e a senha configurados no perfil (a extensão valida o token com `/me` antes de enviar).

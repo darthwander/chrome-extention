@@ -30,7 +30,7 @@
             <button id="export-json" type="button" class="menu-item" role="menuitem" disabled>Exportar JSON</button>
             <button id="clear" type="button" class="menu-item" role="menuitem" disabled>Limpar Logs</button>
             <button id="open-logs" type="button" class="menu-item" role="menuitem" disabled>Abrir lista completa</button>
-            <button id="edit-profile" type="button" class="menu-item hidden" role="menuitem">Editar nome e email</button>
+            <button id="edit-profile" type="button" class="menu-item hidden" role="menuitem">Editar email e senha</button>
           </div>
         </div>
         <h1 class="title">Time Tracker</h1>
@@ -42,12 +42,12 @@
         <p class="subtitle">Informe seu nome e email para usar a extensão.</p>
         <div class="form-row" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
           <div style="display:flex; flex-direction:column; gap:4px;">
-            <label for="profile-name">Nome</label>
-            <input id="profile-name" type="text" placeholder="Seu nome" />
-          </div>
-          <div style="display:flex; flex-direction:column; gap:4px;">
             <label for="profile-email">Email</label>
             <input id="profile-email" type="email" placeholder="voce@exemplo.com" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label for="profile-password">Senha</label>
+            <input id="profile-password" type="password" placeholder="********" />
           </div>
           <button id="save-profile-popup" type="button" class="btn">Salvar</button>
         </div>

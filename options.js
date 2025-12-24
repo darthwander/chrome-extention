@@ -24,14 +24,14 @@ function colorForActivity(name) {
 
 let lastTimelineRows = [];
 const timelineEmptyElement = document.getElementById('timeline-empty');
-const nameInput = document.getElementById('name');
 const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
 const fromInput = document.getElementById('from');
 const toInput = document.getElementById('to');
 const periodLabel = document.getElementById('period-label');
 const statusElement = document.getElementById('status');
 const saveProfileButton = document.getElementById('save-profile');
-let savedProfile = { userName: '', userEmail: '' };
+let savedProfile = { userEmail: '', userPassword: '' };
 const sendHeyButton = document.getElementById('send-hey');
 const TIMELINE_EMPTY_MESSAGE =
   (timelineEmptyElement?.dataset?.emptyText || timelineEmptyElement?.textContent || 'Nenhum registro disponível para exibir.').trim();
@@ -40,19 +40,19 @@ const TIMELINE_LOADING_MESSAGE =
 
 function sanitizeProfileInputs() {
   return {
-    userName: (nameInput?.value || '').trim(),
     userEmail: (emailInput?.value || '').trim(),
+    userPassword: (passwordInput?.value || '').trim(),
   };
 }
 
 function updateProfileButtonVisibility(forceVisible = false) {
   if (!saveProfileButton) return;
-  const { userName, userEmail } = sanitizeProfileInputs();
-  const nameChanged = userName !== savedProfile.userName;
+  const { userEmail, userPassword } = sanitizeProfileInputs();
   const emailChanged = userEmail !== savedProfile.userEmail;
-  const missingProfile = !savedProfile.userName || !savedProfile.userEmail;
-  const isEditing = document.activeElement === nameInput || document.activeElement === emailInput;
-  const shouldShow = forceVisible || missingProfile || nameChanged || emailChanged || isEditing;
+  const passChanged = userPassword !== savedProfile.userPassword;
+  const missingProfile = !savedProfile.userEmail || !savedProfile.userPassword;
+  const isEditing = document.activeElement === emailInput || document.activeElement === passwordInput;
+  const shouldShow = forceVisible || missingProfile || emailChanged || passChanged || isEditing;
   saveProfileButton.hidden = !shouldShow;
 }
 
@@ -180,15 +180,15 @@ document.getElementById('clear').addEventListener('click', () => {
 });
 
 function saveProfile() {
-  const { userName, userEmail } = sanitizeProfileInputs();
-  if (!userName || !userEmail) {
-    if (statusElement) statusElement.textContent = 'Informe nome e email para salvar.';
+  const { userEmail, userPassword } = sanitizeProfileInputs();
+  if (!userEmail || !userPassword) {
+    if (statusElement) statusElement.textContent = 'Informe email e senha para salvar.';
     updateProfileButtonVisibility(true);
     return;
   }
 
-  chrome.storage.local.set({ userName, userEmail }, () => {
-    savedProfile = { userName, userEmail };
+  chrome.storage.local.set({ userEmail, userPassword }, () => {
+    savedProfile = { userEmail, userPassword };
     if (statusElement) statusElement.textContent = 'Perfil salvo.';
     updateProfileButtonVisibility(false);
   });
@@ -198,12 +198,12 @@ if (saveProfileButton) {
   saveProfileButton.addEventListener('click', saveProfile);
 }
 
-if (nameInput) {
-  ['focus', 'input', 'blur', 'change'].forEach((evt) => nameInput.addEventListener(evt, () => updateProfileButtonVisibility()));
-}
-
 if (emailInput) {
   ['focus', 'input', 'blur', 'change'].forEach((evt) => emailInput.addEventListener(evt, () => updateProfileButtonVisibility()));
+}
+
+if (passwordInput) {
+  ['focus', 'input', 'blur', 'change'].forEach((evt) => passwordInput.addEventListener(evt, () => updateProfileButtonVisibility()));
 }
 
 function normalizeExportRow(row) {
@@ -556,12 +556,12 @@ function currentPeriodLabel() {
 }
 
 // Load saved profile on startup
-chrome.storage.local.get(['userName','userEmail'], (vals) => {
-  if (nameInput) nameInput.value = vals.userName || '';
+chrome.storage.local.get(['userEmail','userPassword'], (vals) => {
   if (emailInput) emailInput.value = vals.userEmail || '';
+  if (passwordInput) passwordInput.value = vals.userPassword || '';
   savedProfile = {
-    userName: (vals.userName || '').trim(),
     userEmail: (vals.userEmail || '').trim(),
+    userPassword: (vals.userPassword || '').trim(),
   };
   updateProfileButtonVisibility();
 });
