@@ -36,7 +36,7 @@ async function stopCurrentIfAny(endAtIso) {
   const logs = logsRaw || [];
   if (current && !current.endedAt) {
     const endedAt = endAtIso || nowISO();
-    logs.push({ ...current, endedAt });
+    logs.push({ ...current, endedAt, sentHeyGestor: false });
     await setStorage({ [STORAGE_KEYS.CURRENT]: null, [STORAGE_KEYS.LOGS]: logs });
     return { stopped: current };
   }
@@ -60,6 +60,7 @@ function normalizeImportRow(row) {
     endedAt: row.endedAt ?? "",
     durationSeconds: Number.isFinite(row.durationSeconds) ? row.durationSeconds : undefined,
     url: row.url ?? "",
+    sentHeyGestor: Boolean(row.sentHeyGestor),
   };
 }
 
@@ -124,6 +125,35 @@ async function buildExportRows({ includeRunningAsEnded = true, onlyEnded = false
   return { rows: onlyEnded ? mapped.filter((r) => r.endedAt) : mapped, exportedAt };
 }
 
+async function getPendingLogsForHeyGestor() {
+  const { [STORAGE_KEYS.LOGS]: logsRaw } = await getStorage([STORAGE_KEYS.LOGS]);
+  const logs = Array.isArray(logsRaw) ? logsRaw : [];
+  const exportedAt = nowISO();
+  const pending = [];
+
+  logs.forEach((log, idx) => {
+    if (log?.sentHeyGestor) return;
+    const row = toWorkLogRow(log, { minDurationSeconds: 1 });
+    if (row) pending.push({ row, index: idx });
+  });
+
+  return {
+    exportedAt,
+    rows: pending.map((p) => p.row),
+    indexes: pending.map((p) => p.index),
+  };
+}
+
+async function markLogsAsSent(indexes) {
+  if (!Array.isArray(indexes) || !indexes.length) return;
+  const { [STORAGE_KEYS.LOGS]: logsRaw } = await getStorage([STORAGE_KEYS.LOGS]);
+  const logs = Array.isArray(logsRaw) ? [...logsRaw] : [];
+  indexes.forEach((i) => {
+    if (logs[i]) logs[i].sentHeyGestor = true;
+  });
+  await setStorage({ [STORAGE_KEYS.LOGS]: logs });
+}
+
 async function loginHeyGestor(baseUrl) {
   const endpoint = `${sanitizeBaseUrl(baseUrl)}/auth/login`;
   const res = await fetch(endpoint, {
@@ -147,11 +177,7 @@ async function loginHeyGestor(baseUrl) {
 
 async function pushLogsToHeyGestor() {
   const baseUrl = HEYGESTOR_DEFAULT_BASE_URL;
-  const { rows, exportedAt } = await buildExportRows({
-    includeRunningAsEnded: true,
-    onlyEnded: true,
-    minDurationSeconds: 1,
-  });
+  const { rows, exportedAt, indexes } = await getPendingLogsForHeyGestor();
   if (!rows.length) {
     return { ok: false, error: "Nenhum registro finalizado para enviar." };
   }
@@ -176,6 +202,7 @@ async function pushLogsToHeyGestor() {
   }
 
   const data = await res.json();
+  await markLogsAsSent(indexes);
   return { ok: true, summary: data?.data?.summary ?? null };
 }
 
@@ -277,7 +304,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           }
         }
 
-        const updatedLogs = [...existingLogs, ...incomingRows].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt));
+        const updatedLogs = [...existingLogs, ...incomingRows.map((r) => ({ ...r, sentHeyGestor: false }))].sort(
+          (a, b) => new Date(a.startedAt) - new Date(b.startedAt)
+        );
         await setStorage({ [STORAGE_KEYS.LOGS]: updatedLogs });
         sendResponse({ ok: true, count: incomingRows.length });
         return;
