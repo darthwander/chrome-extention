@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -17,9 +17,9 @@
             aria-haspopup="true"
             aria-expanded="false"
             aria-controls="actions-menu"
-            aria-label="Abrir menu de ações"
+            aria-label="Abrir menu de aÃ§Ãµes"
           >
-            <span class="sr-only">Abrir menu de ações</span>
+            <span class="sr-only">Abrir menu de aÃ§Ãµes</span>
             <span aria-hidden="true" class="icon-bar"></span>
             <span aria-hidden="true" class="icon-bar"></span>
             <span aria-hidden="true" class="icon-bar"></span>
@@ -38,8 +38,8 @@
       </header>
 
       <section id="profile-panel" class="card">
-        <h2 class="card-title">Perfil necessário</h2>
-        <p class="subtitle">Informe seu nome e email para usar a extensão.</p>
+        <h2 class="card-title">Perfil necessÃ¡rio</h2>
+        <p class="subtitle">Informe seu nome e email para usar a extensÃ£o.</p>
         <div class="form-row" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
           <div style="display:flex; flex-direction:column; gap:4px;">
             <label for="profile-email">Email</label>
@@ -55,15 +55,19 @@
 
       <section id="status-section" class="card hidden">
         <h2 class="card-title">Status</h2>
-        <p id="status" class="status-text">Carregando…</p>
+        <p id="status" class="status-text">Carregandoâ€¦</p>
         <div class="status-actions">
           <button id="stop" type="button" class="btn btn-danger hidden">Encerrar tarefa atual</button>
         </div>
       </section>
 
       <section id="logs-section" class="card hidden">
-        <h2 class="card-title">Últimos registros</h2>
+        <h2 class="card-title">Ãšltimos registros</h2>
         <ul id="logs" class="logs"></ul>
+      </section>
+      <section id="today-tasks-section" class="card hidden">
+        <h2 class="card-title">Tarefas disponiveis para hoje</h2>
+        <ul id="today-tasks" class="logs"></ul>
       </section>
 
       <section id="import-section" class="card hidden">
@@ -80,7 +84,7 @@
 
         <form id="import-form" class="hidden" novalidate>
           <div class="form-row">
-            <label for="import-file">Arquivo de exportação (XLSX ou JSON)</label>
+            <label for="import-file">Arquivo de exportaÃ§Ã£o (XLSX ou JSON)</label>
             <input id="import-file" type="file" accept=".xlsx,.json,application/json" />
           </div>
           <div class="form-row form-actions">
@@ -95,3 +99,6 @@
     <script src="popup.js"></script>
   </body>
 </html>
+
+
+

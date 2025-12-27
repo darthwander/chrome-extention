@@ -30,6 +30,11 @@ function sanitizeBaseUrl(raw) {
   return base.replace(/\/+$/, "");
 }
 
+function formatDateYMD(date = new Date()) {
+  const pad = (v) => String(v).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 async function stopCurrentIfAny(endAtIso) {
   const { [STORAGE_KEYS.CURRENT]: current, [STORAGE_KEYS.LOGS]: logsRaw } = await getStorage([
     STORAGE_KEYS.CURRENT,
@@ -209,6 +214,29 @@ async function ensureHeyGestorToken() {
   }
 }
 
+async function fetchPendingTasksForToday() {
+  const baseUrl = HEYGESTOR_DEFAULT_BASE_URL;
+  const { token } = await ensureHeyGestorToken();
+  const today = formatDateYMD(new Date());
+  const endpoint = `${sanitizeBaseUrl(baseUrl)}/tasks/pending?from=${today}&to=${today}`;
+  const res = await fetch(endpoint, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Falha ao buscar tarefas (HTTP ${res.status}): ${text?.slice(0, 200) || "sem corpo"}`);
+  }
+  const data = await res.json();
+  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  return rows.map((row) => ({
+    id: row.id ?? "",
+    title: row.title ?? "",
+    projectName: row.projectName ?? "",
+    captureType: row.captureType ?? "",
+    url: row.url ?? "",
+  }));
+}
+
 async function pushLogsToHeyGestor() {
   const baseUrl = HEYGESTOR_DEFAULT_BASE_URL;
   const { rows, exportedAt, indexes } = await getPendingLogsForHeyGestor();
@@ -291,6 +319,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg?.type === "clearLogs") {
         await setStorage({ [STORAGE_KEYS.LOGS]: [] });
         sendResponse({ ok: true });
+        return;
+      }
+
+      if (msg?.type === "getPendingTasksToday") {
+        const rows = await fetchPendingTasksForToday();
+        sendResponse({ ok: true, rows });
         return;
       }
 

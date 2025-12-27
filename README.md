@@ -27,8 +27,7 @@ Extensão que injeta um botão em modais de itens de trabalho suportados (como A
 - `activeTab` + `host_permissions` para domínios configurados (Azure DevOps, GLPI etc.).
 
 ## Limitações
-- Somente captura do modal de Work Item.
-- Não envia dados para servidor; tudo em `chrome.storage.local`.
+- Atualmente só registra dados com extensão para incidentes de GLPI e Work Items dentro do card do Azure Devops
 
 ## Envio manual para Hey Gestor
 - No `options.html`, use o botão **Enviar para Hey Gestor** para mandar os registros finalizados para a rota `/work-logs/import`.

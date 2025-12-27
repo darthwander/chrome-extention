@@ -15,6 +15,8 @@ const profilePasswordInput = document.getElementById('profile-password');
 const saveProfilePopupBtn = document.getElementById('save-profile-popup');
 const statusSection = document.getElementById('status-section');
 const logsSection = document.getElementById('logs-section');
+const todayTasksSection = document.getElementById('today-tasks-section');
+const todayTasksList = document.getElementById('today-tasks');
 const importSection = document.getElementById('import-section');
 const importMoreBtn = document.getElementById('import-more');
 const importLessBtn = document.getElementById('import-less');
@@ -80,6 +82,7 @@ function applyProfileGate(profile) {
     profilePanel?.classList.add('hidden');
     statusSection?.classList.remove('hidden');
     logsSection?.classList.remove('hidden');
+    todayTasksSection?.classList.remove('hidden');
     importSection?.classList.remove('hidden');
     setMenuDisabled(false);
     editProfileBtn?.classList.remove('hidden');
@@ -87,6 +90,7 @@ function applyProfileGate(profile) {
     profilePanel?.classList.remove('hidden');
     statusSection?.classList.add('hidden');
     logsSection?.classList.add('hidden');
+    todayTasksSection?.classList.add('hidden');
     importSection?.classList.add('hidden');
     setMenuDisabled(true);
     editProfileBtn?.classList.add('hidden');
@@ -145,14 +149,91 @@ function renderLogs(logs) {
   });
 }
 
+function setTodayTasksFeedback(message, isError = false) {
+  if (!todayTasksList) return;
+  todayTasksList.innerHTML = '';
+  const li = document.createElement('li');
+  li.className = 'empty-state';
+  if (isError) li.classList.add('error');
+  li.textContent = message;
+  todayTasksList.appendChild(li);
+}
+
+function renderTodayTasks(tasks) {
+  if (!todayTasksList) return;
+  todayTasksList.innerHTML = '';
+
+  if (!Array.isArray(tasks) || !tasks.length) {
+    setTodayTasksFeedback('Nenhuma tarefa pendente para hoje.');
+    return;
+  }
+
+  tasks.forEach((task) => {
+    const li = document.createElement('li');
+    li.className = 'logs-item';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'logs-item-content';
+
+    const textContainer = document.createElement('div');
+    textContainer.className = 'logs-item-text';
+
+    const strong = document.createElement('strong');
+    const title = truncate(task.title || '', 50);
+    const project = truncate(task.projectName || 'Sem projeto', 30);
+    strong.textContent = `${project} - ${title}`;
+
+    const span = document.createElement('span');
+    span.className = 'muted';
+    span.textContent = task.id ? `#${task.id}` : 'Sem identificador';
+
+    textContainer.appendChild(strong);
+    textContainer.appendChild(span);
+
+    const actionButton = document.createElement('button');
+    actionButton.type = 'button';
+    actionButton.className = 'logs-item-action';
+    actionButton.innerHTML = '<span aria-hidden="true">▶</span>';
+    const accessibleTitle = task.title || task.id || 'tarefa';
+    actionButton.setAttribute('aria-label', `Iniciar contagem para ${accessibleTitle}`);
+    actionButton.title = 'Iniciar contagem';
+    actionButton.addEventListener('click', (ev) => { ev.stopPropagation(); startPendingTask(task); });
+
+    wrapper.appendChild(textContainer);
+    wrapper.appendChild(actionButton);
+    li.appendChild(wrapper);
+    todayTasksList.appendChild(li);
+  });
+}
+
 function startLogAgain(log) {
   if (!log || !log.endedAt) return;
   const payload = { id: log.id, title: log.title, url: log.url, projectName: log.projectName, captureType: log.captureType };
   chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: payload }, (res) => {
     if (chrome.runtime.lastError) { handleError('Falha ao iniciar nova contagem.'); return; }
     if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
-    if (res.action === 'started') { showStatus(`Iniciado: #${res.started?.id} — ${res.started?.title}`); stopBtn.classList.remove('hidden'); refresh(); }
-    else if (res.action === 'stopped') { showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`); stopBtn.classList.add('hidden'); refresh(); }
+    if (res.action === 'started') { showStatus(`Iniciado: #${res.started?.id} - ${res.started?.title}`); stopBtn.classList.remove('hidden'); refresh(); }
+    else if (res.action === 'stopped') { showStatus(`Encerrado: #${res.stopped?.id} - ${res.stopped?.title}`); stopBtn.classList.add('hidden'); refresh(); }
+  });
+}
+
+function startPendingTask(task) {
+  if (!task) return;
+  const payload = {
+    id: task.id,
+    title: task.title,
+    url: task.url,
+    projectName: task.projectName,
+    captureType: task.captureType || 'hey-gestor-task',
+  };
+  chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: payload }, (res) => {
+    if (chrome.runtime.lastError) { handleError('Falha ao iniciar tarefa.'); return; }
+    if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
+    if (res.action === 'started') {
+      showStatus(`Iniciado: #${res.started?.id} - ${res.started?.title}`);
+      stopBtn.classList.remove('hidden');
+      refresh();
+    }
   });
 }
 
@@ -438,6 +519,16 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
+function loadTodayTasks() {
+  if (!todayTasksList) return;
+  setTodayTasksFeedback('Carregando tarefas...');
+  chrome.runtime.sendMessage({ type: 'getPendingTasksToday' }, (res) => {
+    if (chrome.runtime.lastError) { setTodayTasksFeedback('Falha ao carregar tarefas.', true); return; }
+    if (!res?.ok) { setTodayTasksFeedback(res?.error || 'Erro ao carregar tarefas.', true); return; }
+    renderTodayTasks(Array.isArray(res.rows) ? res.rows : []);
+  });
+}
+
 function refresh() {
   // Gate first
   chrome.storage.local.get(['userEmail','userPassword'], (vals) => {
@@ -464,6 +555,7 @@ function refresh() {
       const displayLogs = [...logs];
       if (currentTask && !currentTask.endedAt) displayLogs.unshift(currentTask);
       renderLogs(displayLogs);
+      loadTodayTasks();
     });
   });
 }
