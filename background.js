@@ -7,7 +7,7 @@ const STORAGE_KEYS = {
   HEY_TOKEN_EMAIL: "heyTokenEmail",
 };
 
-const HEYGESTOR_DEFAULT_BASE_URL = "http://localhost:8000/api/v1";
+const HEYGESTOR_DEFAULT_BASE_URL = "https://heygestor.on-forge.com/api/v1";
 
 async function getStorage(keys) {
   return new Promise((resolve) => chrome.storage.local.get(keys, resolve));

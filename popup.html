@@ -17,9 +17,9 @@
             aria-haspopup="true"
             aria-expanded="false"
             aria-controls="actions-menu"
-            aria-label="Abrir menu de aÃ§Ãµes"
+            aria-label="Abrir menu de ações"
           >
-            <span class="sr-only">Abrir menu de aÃ§Ãµes</span>
+            <span class="sr-only">Abrir menu de ações</span>
             <span aria-hidden="true" class="icon-bar"></span>
             <span aria-hidden="true" class="icon-bar"></span>
             <span aria-hidden="true" class="icon-bar"></span>
@@ -38,8 +38,8 @@
       </header>
 
       <section id="profile-panel" class="card">
-        <h2 class="card-title">Perfil necessÃ¡rio</h2>
-        <p class="subtitle">Informe seu nome e email para usar a extensÃ£o.</p>
+        <h2 class="card-title">Perfil necessário</h2>
+        <p class="subtitle">Informe seu email e senha para usar a extensão.</p>
         <div class="form-row" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
           <div style="display:flex; flex-direction:column; gap:4px;">
             <label for="profile-email">Email</label>
@@ -53,24 +53,31 @@
         </div>
       </section>
 
-      <section id="status-section" class="card hidden">
+      <nav id="tabs-nav" class="tabs hidden" aria-label="Navegação da popup">
+        <button type="button" class="tab-button active" data-tab="status">Status</button>
+        <button type="button" class="tab-button" data-tab="logs">Últimos registros</button>
+        <button type="button" class="tab-button" data-tab="today">Tarefas disponíveis hoje</button>
+        <button type="button" class="tab-button" data-tab="import">Importar registro</button>
+      </nav>
+
+      <section id="status-section" class="card tab-panel hidden" data-panel="status">
         <h2 class="card-title">Status</h2>
-        <p id="status" class="status-text">Carregandoâ€¦</p>
+        <p id="status" class="status-text">Carregando...</p>
         <div class="status-actions">
           <button id="stop" type="button" class="btn btn-danger hidden">Encerrar tarefa atual</button>
         </div>
       </section>
 
-      <section id="logs-section" class="card hidden">
-        <h2 class="card-title">Ãšltimos registros</h2>
+      <section id="logs-section" class="card tab-panel hidden" data-panel="logs">
+        <h2 class="card-title">Últimos registros</h2>
         <ul id="logs" class="logs"></ul>
       </section>
-      <section id="today-tasks-section" class="card hidden">
-        <h2 class="card-title">Tarefas disponiveis para hoje</h2>
+      <section id="today-tasks-section" class="card tab-panel hidden" data-panel="today">
+        <h2 class="card-title">Tarefas disponíveis para hoje</h2>
         <ul id="today-tasks" class="logs"></ul>
       </section>
 
-      <section id="import-section" class="card hidden">
+      <section id="import-section" class="card tab-panel hidden" data-panel="import">
         <div class="accordion-header">
           <div>
             <h2 class="card-title">Importar registros</h2>
@@ -84,7 +91,7 @@
 
         <form id="import-form" class="hidden" novalidate>
           <div class="form-row">
-            <label for="import-file">Arquivo de exportaÃ§Ã£o (XLSX ou JSON)</label>
+            <label for="import-file">Arquivo de exportação (XLSX ou JSON)</label>
             <input id="import-file" type="file" accept=".xlsx,.json,application/json" />
           </div>
           <div class="form-row form-actions">

@@ -13,6 +13,9 @@ const profilePanel = document.getElementById('profile-panel');
 const profileEmailInput = document.getElementById('profile-email');
 const profilePasswordInput = document.getElementById('profile-password');
 const saveProfilePopupBtn = document.getElementById('save-profile-popup');
+const tabsNav = document.getElementById('tabs-nav');
+const tabButtons = Array.from(document.querySelectorAll('[data-tab]'));
+const tabPanels = Array.from(document.querySelectorAll('[data-panel]'));
 const statusSection = document.getElementById('status-section');
 const logsSection = document.getElementById('logs-section');
 const todayTasksSection = document.getElementById('today-tasks-section');
@@ -26,6 +29,7 @@ const importFeedback = document.getElementById('import-feedback');
 
 let currentTask = null;
 let cachedProfile = { userEmail: '', userPassword: '' };
+let activeTab = 'status';
 
 const REQUIRED_COLUMNS = {
   id: 'ID',
@@ -76,18 +80,31 @@ function setMenuDisabled(disabled) {
   });
 }
 
+function setActiveTab(tabId) {
+  activeTab = tabId;
+  tabButtons.forEach((button) => {
+    const isActive = button.dataset.tab === tabId;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+  });
+  tabPanels.forEach((panel) => {
+    const isActive = panel.dataset.panel === tabId;
+    panel.classList.toggle('hidden', !isActive);
+    panel.setAttribute('aria-hidden', String(!isActive));
+  });
+}
+
 function applyProfileGate(profile) {
   const hasProfile = !!(profile?.userEmail && profile?.userPassword);
   if (hasProfile) {
     profilePanel?.classList.add('hidden');
-    statusSection?.classList.remove('hidden');
-    logsSection?.classList.remove('hidden');
-    todayTasksSection?.classList.remove('hidden');
-    importSection?.classList.remove('hidden');
+    tabsNav?.classList.remove('hidden');
     setMenuDisabled(false);
     editProfileBtn?.classList.remove('hidden');
+    setActiveTab(activeTab);
   } else {
     profilePanel?.classList.remove('hidden');
+    tabsNav?.classList.add('hidden');
     statusSection?.classList.add('hidden');
     logsSection?.classList.add('hidden');
     todayTasksSection?.classList.add('hidden');
@@ -434,7 +451,7 @@ async function handleImportSubmit(event) {
       try {
         parsed = JSON.parse(text);
       } catch {
-        throw new Error('JSON invalido.');
+        throw new Error('JSON inválido.');
       }
       const rows = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.rows) ? parsed.rows : null);
       if (!rows) throw new Error('Arquivo JSON sem campo "rows".');
@@ -443,7 +460,7 @@ async function handleImportSubmit(event) {
       const buffer = await readFileAsArrayBuffer(file);
       const entries = parseZipEntries(buffer);
       const sheetBytes = entries['xl/worksheets/sheet1.xml'];
-      if (!sheetBytes) throw new Error('Arquivo invalido ou corrompido.');
+      if (!sheetBytes) throw new Error('Arquivo inválido ou corrompido.');
       const sheetText = new TextDecoder().decode(sheetBytes);
       const rawRows = extractRowsFromSheet(sheetText);
       importedRows = sanitizeImportedRows(rawRows);
@@ -567,6 +584,9 @@ actionsToggle.addEventListener('click', (e) => { e.stopPropagation(); if (action
 document.addEventListener('click', (e) => { if (!actionsMenu.classList.contains('hidden') && !actionsMenu.contains(e.target) && e.target !== actionsToggle) closeActionsMenu(); });
 actionsMenu.addEventListener('click', (e) => { if (e.target instanceof HTMLElement && e.target.classList.contains('menu-item')) closeActionsMenu(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeActionsMenu(); });
+tabButtons.forEach((button) => {
+  button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+});
 
 if (importMoreBtn) importMoreBtn.addEventListener('click', () => toggleImportForm(true));
 if (importLessBtn) importLessBtn.addEventListener('click', () => toggleImportForm(false));
@@ -650,8 +670,11 @@ if (editProfileBtn) {
       if (profileEmailInput) profileEmailInput.value = vals.userEmail || '';
       if (profilePasswordInput) profilePasswordInput.value = vals.userPassword || '';
       profilePanel?.classList.remove('hidden');
+      tabsNav?.classList.add('hidden');
       statusSection?.classList.add('hidden');
       logsSection?.classList.add('hidden');
+      todayTasksSection?.classList.add('hidden');
+      importSection?.classList.add('hidden');
       setMenuDisabled(true);
     });
   });

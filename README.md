@@ -1,34 +1,79 @@
-# Time Tracker (Chrome)
+# Rastreador de Tempo (Extensão para Chrome)
 
-Extensão que injeta um botão em modais de itens de trabalho suportados (como Azure DevOps ou GLPI) para iniciar/encerrar tracking. Ao iniciar uma tarefa, qualquer outra em andamento é automaticamente encerrada.
+Esta extensão permite que você rastreie o tempo gasto em itens de trabalho de várias plataformas, fornecendo uma solução de gerenciamento de tempo simples e integrada.
 
-## Instalação (modo desenvolvedor)
-1. Acesse `chrome://extensions` e ative o **Modo do desenvolvedor**.
-2. Clique em **Carregar sem compactação** e selecione a pasta deste projeto.
-3. Acesse uma das ferramentas suportadas (ex.: `https://dev.azure.com/sua-org/...`). Abra um item de trabalho.
-4. No modal, clique em **Track time**.
+## Funcionalidades
 
-## Funcionamento
-- **Track time** no modal:
-  - Se não houver tarefa: inicia a atual.
-  - Se houver outra tarefa: encerra a antiga e inicia a atual.
-  - Se clicar na mesma tarefa: encerra a atual.
-- Histórico e status: clique no ícone da extensão (popup) para ver `options.html`.
-- Exportar CSV pelo popup.
+- **Rastreamento de Tempo Contínuo**:
+  - Inicie e pare de rastrear o tempo com um único clique.
+  - Para automaticamente a tarefa atual quando você inicia uma nova.
 
-## Seletores usados
-- ID: `a[href*="/_workitems/edit/"]` (regex `/edit/(\d+)`).
-- Título: `.work-item-title-textfield input`.
+- **Integrações**:
+  - **Azure DevOps**: Injeta um botão "Rastrear tempo" diretamente nos formulários de item de trabalho.
+  - **GLPI**: Adiciona um botão "Rastrear tempo" aos formulários de chamado e mudança.
+  - **HeyGestor**:
+    - Envia os registros de tempo concluídos para sua conta HeyGestor.
+    - Busca e exibe as tarefas pendentes do dia.
 
-> Caso a ferramenta-alvo altere o DOM, ajuste os seletores em `content.js`.
+- **Interface Popup**:
+  - Veja a tarefa em execução e sua duração.
+  - Veja uma lista de registros de tempo recentes.
+  - Inicie/pare o cronômetro manualmente.
+  - Acesse um menu com ações adicionais:
+    - **Atualizar**: Recarrega os dados de rastreamento.
+    - **Exportar**: Baixe os registros de tempo em formato XLSX ou JSON.
+    - **Importar**: Importe registros de tempo de um arquivo JSON ou XLSX.
+    - **Limpar Registros**: Apaga todos os dados de rastreamento de tempo armazenados.
+    - **Ver Log Completo**: Abre a página de opções detalhadas.
+
+- **Gerenciamento de Dados**:
+  - **Exportar**: Salve seus registros de tempo como arquivos XLSX ou JSON para relatórios ou backup.
+  - **Importar**: Adicione registros de tempo de arquivos externos.
+  - **Armazenamento Local**: Todos os dados são armazenados de forma segura no armazenamento local do seu navegador.
+
+- **Visualização Detalhada de Logs e Gráficos (Página de Opções)**:
+  - Uma visão abrangente de todos os seus registros de tempo.
+  - **Linha do Tempo**: Uma representação visual do seu trabalho ao longo do dia.
+  - **Gráfico de Pizza por Projeto**: Veja a distribuição do seu tempo entre diferentes projetos.
+
+## Como Funciona
+
+1.  **Instalação**: Carregue a extensão no modo de desenvolvedor em seu navegador.
+2.  **Configuração**: Abra o popup da extensão ou a página de opções para configurar suas credenciais do HeyGestor (email e senha).
+3.  **Rastreamento**:
+    - Navegue para uma plataforma suportada (como um item de trabalho do Azure DevOps ou um chamado do GLPI).
+    - Clique no botão **Rastrear tempo** injetado pela extensão para iniciar ou parar o cronômetro.
+    - Alternativamente, use o popup para gerenciar seu rastreamento de tempo.
+4.  **Visualização e Exportação**:
+    - Clique no ícone da extensão para abrir o popup para uma visão geral rápida.
+    - Vá para a página de opções para um registro detalhado, visualização da linha do tempo e para exportar seus dados.
+
+## Instalação (Modo de Desenvolvedor)
+
+1.  Abra o Chrome e vá para `chrome://extensions`.
+2.  Ative o **Modo de desenvolvedor**.
+3.  Clique em **Carregar sem compactação** e selecione a pasta que contém os arquivos da extensão.
+4.  A extensão será instalada e estará pronta para uso.
+
+## Integração com o HeyGestor
+
+- **Autenticação**: A extensão requer que seu email and senha do HeyGestor sejam configurados na seção de perfil do popup ou da página de opções. Ela se autentica com a API do HeyGestor para obter um token.
+- **Envio de Logs**: Na página de opções, você pode clicar em **Enviar para o Hey Gestor** para enviar todos os registros de tempo finalizados (não "em andamento") para o endpoint `/work-logs/import`.
+- **Busca de Tarefas**: O popup busca e exibe automaticamente as tarefas pendentes atribuídas a você no HeyGestor para o dia atual, permitindo que você comece a rastreá-las rapidamente.
+
+## Seletores Utilizados
+
+A extensão usa os seguintes seletores de CSS para encontrar onde injetar o botão "Rastrear tempo". Se a interface do usuário da plataforma de destino mudar, estes podem precisar ser atualizados em `content.js`.
+
+- **Azure DevOps**:
+  - ID: `a[href*="/_workitems/edit/"]` (usando regex `/edit/(\d+)`)
+  - Título: `.work-item-title-textfield input`
+
+- **GLPI**:
+  - A extensão procura por vários elementos nos formulários de chamado e mudança para encontrar um ponto de ancoragem adequado para o botão.
 
 ## Permissões
-- `storage`: salvar estado e logs.
-- `activeTab` + `host_permissions` para domínios configurados (Azure DevOps, GLPI etc.).
 
-## Limitações
-- Atualmente só registra dados com extensão para incidentes de GLPI e Work Items dentro do card do Azure Devops
-
-## Envio manual para Hey Gestor
-- No `options.html`, use o botão **Enviar para Hey Gestor** para mandar os registros finalizados para a rota `/work-logs/import`.
-- O login é feito automaticamente via `/auth/login`, usando o email e a senha configurados no perfil (a extensão valida o token com `/me` antes de enviar).
+- `storage`: Para salvar registros de tempo e configurações do usuário localmente.
+- `activeTab`: Para interagir com a aba atualmente aberta.
+- `host_permissions`: Para acessar os domínios configurados para Azure DevOps, GLPI, etc., e injetar o script de conteúdo.
