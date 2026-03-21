@@ -1,3 +1,5 @@
+import mermaid from './vendor/mermaid.esm.min.mjs';
+
 const STORAGE_KEY = 'timeTrackerDashboardFilters';
 const PROJECT_COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#0EA5E9', '#8B5CF6', '#14B8A6', '#F97316', '#64748B'];
 const ORIGIN_META = {
@@ -47,13 +49,13 @@ const els = {
   timelineLayout: document.getElementById('timeline-layout'),
   timelineEmpty: document.getElementById('timeline-empty'),
   timelineScroller: document.getElementById('timeline-scroller'),
-  tooltip: document.getElementById('tooltip'),
   email: document.getElementById('email'),
   password: document.getElementById('password'),
   saveProfile: document.getElementById('save-profile'),
 };
 
 let savedProfile = { userEmail: '', userPassword: '' };
+let mermaidRenderToken = 0;
 
 function loadSavedFilters() {
   try {
@@ -99,6 +101,39 @@ function saveFilters() {
 }
 
 function init() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    securityLevel: 'loose',
+    fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+    gantt: {
+      axisFormat: '%d/%m %H:%M',
+      numberSectionStyles: 12,
+      topPadding: 32,
+      leftPadding: 88,
+      gridLineStartPadding: 32,
+      fontSize: 13,
+      barHeight: 26,
+      barGap: 10,
+    },
+    themeVariables: {
+      primaryColor: '#2563EB',
+      primaryTextColor: '#111827',
+      primaryBorderColor: '#1D4ED8',
+      lineColor: '#CBD5E1',
+      sectionBkgColor: '#F8FAFC',
+      sectionBkgColor2: '#FFFFFF',
+      altSectionBkgColor: '#FFFFFF',
+      taskBorderColor: '#E5E7EB',
+      taskTextColor: '#111827',
+      textColor: '#111827',
+      secondaryColor: '#DBEAFE',
+      tertiaryColor: '#F3F4F6',
+      cScale0: '#EFF6FF',
+      cScale1: '#F8FAFC',
+      cScale2: '#FFFFFF',
+    },
+  });
   bindEvents();
   hydrateFiltersFromState();
   chrome.storage.local.get(['userEmail', 'userPassword'], (vals) => {
@@ -676,9 +711,11 @@ function renderDonut() {
   els.donut.style.background = `conic-gradient(${stops.join(', ')})`;
 }
 
-function renderTimeline() {
+async function renderTimeline() {
   if (!els.timelineLayout) return;
   const rows = getSortedRows();
+  const token = ++mermaidRenderToken;
+  const renderId = `tt-mermaid-${Date.now()}-${token}`;
   els.timelineLayout.innerHTML = '';
 
   if (!rows.length) {
@@ -690,139 +727,86 @@ function renderTimeline() {
   els.timelineEmpty?.classList.add('hidden');
   els.timelineScroller?.classList.remove('hidden');
 
-  const minStart = new Date(Math.min(...rows.map((row) => row.start.getTime())));
-  const maxEnd = new Date(Math.max(...rows.map((row) => row.end.getTime())));
-  const totalMs = Math.max(1, maxEnd.getTime() - minStart.getTime());
-  const totalHours = totalMs / 3600000;
-  const timelineWidth = Math.max(920, Math.round(totalHours * 160));
-  const ticks = buildAxisTicks(minStart, maxEnd, 6);
-  const longest = rows.reduce((max, row) => (row.durationSeconds > (max?.durationSeconds || -1) ? row : max), null);
-
-  const grid = document.createElement('div');
-  grid.className = 'timeline-grid';
-  grid.style.gridTemplateColumns = `var(--timeline-label-width) minmax(${timelineWidth}px, 1fr)`;
-
-  const spacer = document.createElement('div');
-  spacer.className = 'timeline-axis-spacer';
-  grid.appendChild(spacer);
-
-  const axis = document.createElement('div');
-  axis.className = 'timeline-axis';
-  ticks.forEach((tick) => {
-    const tickEl = document.createElement('div');
-    tickEl.className = 'axis-tick';
-    tickEl.style.left = `${tick.position}%`;
-    const label = document.createElement('span');
-    label.textContent = fmtDate(tick.date);
-    tickEl.appendChild(label);
-    axis.appendChild(tickEl);
-  });
-  grid.appendChild(axis);
-
-  rows.forEach((row) => {
-    const labelCard = document.createElement('div');
-    labelCard.className = 'timeline-label-card';
-
-    const top = document.createElement('div');
-    top.className = 'timeline-label-top';
-    const title = document.createElement('div');
-    title.className = 'timeline-label-title';
-    title.textContent = row.title;
-    const duration = document.createElement('span');
-    duration.className = 'duration-chip';
-    duration.textContent = formatDuration(row.durationSeconds);
-    top.appendChild(title);
-    top.appendChild(duration);
-
-    const meta = document.createElement('div');
-    meta.className = 'timeline-meta';
-    [`#${row.id}`, row.projectName, getOriginLabel(row.captureType)].forEach((part, index) => {
-      if (index > 0) {
-        const separator = document.createElement('span');
-        separator.textContent = '•';
-        meta.appendChild(separator);
-      }
-      const span = document.createElement('span');
-      span.textContent = part;
-      meta.appendChild(span);
-    });
-
-    labelCard.appendChild(top);
-    labelCard.appendChild(meta);
-
-    const track = document.createElement('div');
-    track.className = 'timeline-track';
-    const bar = document.createElement('div');
-    bar.className = 'timeline-bar';
-    if (row.isRunning) bar.classList.add('is-running');
-    if (longest && row.id === longest.id && row.startedAt === longest.startedAt) bar.classList.add('is-highlight');
-
-    const left = ((row.start.getTime() - minStart.getTime()) / totalMs) * 100;
-    const width = Math.max(((row.durationSeconds * 1000) / totalMs) * 100, 1.2);
-    const projectColorValue = projectColor(row.projectName);
-    const originColorValue = ORIGIN_META[row.captureType]?.color || ORIGIN_META.outros.color;
-    bar.style.left = `${left}%`;
-    bar.style.width = `${width}%`;
-    bar.style.background = `linear-gradient(135deg, ${projectColorValue} 0%, ${originColorValue} 100%)`;
-    bar.dataset.tooltip = `${row.title}\n${fmtDate(row.start)} até ${row.isRunning ? 'Em andamento' : fmtDate(row.end)}\nDuração: ${formatDuration(row.durationSeconds)}`;
-    bar.setAttribute('tabindex', '0');
-    bindTooltip(bar);
-
-    const stripe = document.createElement('div');
-    stripe.className = 'timeline-bar-stripe';
-    bar.appendChild(stripe);
-    track.appendChild(bar);
-
-    grid.appendChild(labelCard);
-    grid.appendChild(track);
-  });
-
-  els.timelineLayout.appendChild(grid);
-}
-
-function buildAxisTicks(minStart, maxEnd, count) {
-  const total = maxEnd.getTime() - minStart.getTime();
-  const ticks = [];
-  for (let i = 0; i <= count; i += 1) {
-    const ratio = i / count;
-    ticks.push({
-      position: ratio * 100,
-      date: new Date(minStart.getTime() + total * ratio),
-    });
+  const chart = buildMermaidGantt(rows);
+  if (!chart) {
+    els.timelineEmpty?.classList.remove('hidden');
+    els.timelineScroller?.classList.add('hidden');
+    return;
   }
-  return ticks;
+
+  try {
+    const { svg, bindFunctions } = await mermaid.render(renderId, chart);
+    if (token !== mermaidRenderToken) return;
+    els.timelineLayout.innerHTML = svg;
+    if (typeof bindFunctions === 'function') bindFunctions(els.timelineLayout);
+  } catch (error) {
+    els.timelineEmpty?.classList.remove('hidden');
+    els.timelineScroller?.classList.add('hidden');
+    setStatus(`Falha ao renderizar Gantt Mermaid: ${error?.message || 'desconhecido'}`, 'error');
+  }
 }
 
-function bindTooltip(target) {
-  if (!els.tooltip) return;
-  const show = (event) => {
-    els.tooltip.textContent = target.dataset.tooltip || '';
-    els.tooltip.classList.add('show');
-    positionTooltip(event);
-  };
-  const hide = () => {
-    els.tooltip.classList.remove('show');
-  };
+function buildMermaidGantt(rows) {
+  if (!rows.length) return '';
+  const longest = rows.reduce((max, row) => (row.durationSeconds > (max?.durationSeconds || -1) ? row : max), null);
+  const byProject = new Map();
+  rows.forEach((row) => {
+    const project = row.projectName || 'Sem projeto';
+    if (!byProject.has(project)) byProject.set(project, []);
+    byProject.get(project).push(row);
+  });
 
-  target.addEventListener('mouseenter', show);
-  target.addEventListener('mousemove', positionTooltip);
-  target.addEventListener('mouseleave', hide);
-  target.addEventListener('focus', show);
-  target.addEventListener('blur', hide);
+  const lines = [
+    'gantt',
+    'title Time Tracker',
+    'dateFormat YYYY-MM-DD HH:mm:ss',
+    'axisFormat %d/%m %H:%M',
+    'tickInterval 2hour',
+    'todayMarker off',
+  ];
+
+  Array.from(byProject.entries())
+    .sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'))
+    .forEach(([project, projectRows], sectionIndex) => {
+      lines.push(`section ${escapeMermaidLabel(project)}`);
+
+      projectRows
+        .slice()
+        .sort((a, b) => a.start - b.start)
+        .forEach((row, rowIndex) => {
+          const taskId = `task_${sectionIndex}_${rowIndex}_${sanitizeMermaidId(row.id)}`;
+          const flags = [];
+          if (row.isRunning) flags.push('active');
+          if (longest && row.id === longest.id && row.startedAt === longest.startedAt) flags.push('crit');
+          const header = `${escapeMermaidLabel(`#${row.id} ${truncateMermaid(row.title, 54)}`)} :${flags.length ? `${flags.join(', ')}, ` : ' '}${taskId}, `;
+          lines.push(`${header}${toMermaidDateTime(row.start)}, ${toMermaidDateTime(row.end)}`);
+        });
+    });
+
+  return lines.join('\n');
 }
 
-function positionTooltip(event) {
-  if (!els.tooltip) return;
-  const offsetX = 16;
-  const offsetY = 18;
-  const width = els.tooltip.offsetWidth || 220;
-  const height = els.tooltip.offsetHeight || 70;
-  const maxX = window.innerWidth - width - 16;
-  const maxY = window.innerHeight - height - 16;
-  const x = Math.min(maxX, (event.clientX || 0) + offsetX);
-  const y = Math.min(maxY, (event.clientY || 0) + offsetY);
-  els.tooltip.style.left = `${Math.max(12, x)}px`;
-  els.tooltip.style.top = `${Math.max(12, y)}px`;
+function toMermaidDateTime(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function sanitizeMermaidId(value) {
+  return String(value ?? 'item').replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
+function escapeMermaidLabel(value) {
+  return String(value || '')
+    .replace(/"/g, "'")
+    .replace(/:/g, ' -')
+    .replace(/\n+/g, ' ')
+    .trim();
+}
+
+function truncateMermaid(value, max) {
+  const text = String(value || '').trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 3)}...`;
 }
 
 function normalizeExportRow(row) {
