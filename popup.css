@@ -347,12 +347,16 @@ label {
 
 input[type="email"],
 input[type="password"],
-input[type="file"] {
+input[type="file"],
+input[type="text"],
+textarea {
   font: inherit;
 }
 
 input[type="email"],
-input[type="password"] {
+input[type="password"],
+input[type="text"],
+textarea {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 8px 10px;
@@ -362,7 +366,18 @@ input[type="password"] {
 
 input[type="email"]:focus,
 input[type="password"]:focus,
+input[type="text"]:focus,
+textarea:focus,
 input[type="file"]:focus {
   outline: 2px solid rgba(37, 99, 235, 0.2);
   outline-offset: 1px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.form-actions {
+  margin-top: 4px;
 }

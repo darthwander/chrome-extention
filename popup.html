@@ -57,6 +57,7 @@
         <button type="button" class="tab-button active" data-tab="status">Status</button>
         <button type="button" class="tab-button" data-tab="logs">Últimos registros</button>
         <button type="button" class="tab-button" data-tab="today">Tarefas disponíveis hoje</button>
+        <button type="button" class="tab-button" data-tab="manual">Lançamento manual</button>
         <button type="button" class="tab-button" data-tab="import">Importar registro</button>
       </nav>
 
@@ -75,6 +76,26 @@
       <section id="today-tasks-section" class="card tab-panel hidden" data-panel="today">
         <h2 class="card-title">Tarefas disponíveis para hoje</h2>
         <ul id="today-tasks" class="logs"></ul>
+      </section>
+
+      <section id="manual-section" class="card tab-panel hidden" data-panel="manual">
+        <h2 class="card-title">Lançamento manual</h2>
+        <p class="subtitle">Use o projeto fixo <strong>Reuniões</strong> e informe a descrição da tarefa.</p>
+
+        <form id="manual-form" novalidate>
+          <div class="form-row">
+            <label for="manual-project">Projeto</label>
+            <input id="manual-project" type="text" value="Reuniões" readonly />
+          </div>
+          <div class="form-row">
+            <label for="manual-description">Descrição da tarefa</label>
+            <textarea id="manual-description" rows="4" maxlength="240" placeholder="Ex.: Alinhamento semanal com o time comercial"></textarea>
+          </div>
+          <div class="form-row form-actions">
+            <button id="manual-start" type="submit" class="btn">Iniciar lançamento</button>
+          </div>
+          <p id="manual-feedback" class="subtitle"></p>
+        </form>
       </section>
 
       <section id="import-section" class="card tab-panel hidden" data-panel="import">

@@ -20,6 +20,11 @@ const statusSection = document.getElementById('status-section');
 const logsSection = document.getElementById('logs-section');
 const todayTasksSection = document.getElementById('today-tasks-section');
 const todayTasksList = document.getElementById('today-tasks');
+const manualSection = document.getElementById('manual-section');
+const manualForm = document.getElementById('manual-form');
+const manualProjectInput = document.getElementById('manual-project');
+const manualDescriptionInput = document.getElementById('manual-description');
+const manualFeedback = document.getElementById('manual-feedback');
 const importSection = document.getElementById('import-section');
 const importMoreBtn = document.getElementById('import-more');
 const importLessBtn = document.getElementById('import-less');
@@ -30,6 +35,8 @@ const importFeedback = document.getElementById('import-feedback');
 let currentTask = null;
 let cachedProfile = { userEmail: '', userPassword: '' };
 let activeTab = 'status';
+const MANUAL_MEETING_PROJECT = 'Reuniões';
+const MANUAL_MEETING_CAPTURE_TYPE = 'manual-reunioes';
 
 const REQUIRED_COLUMNS = {
   id: 'ID',
@@ -66,10 +73,31 @@ function showStatus(message, isError = false) {
   statusEl.classList.toggle('error', isError);
 }
 
+function setManualFeedback(message, isError = false) {
+  if (!manualFeedback) return;
+  manualFeedback.textContent = message || '';
+  manualFeedback.classList.toggle('error', isError);
+}
+
 function setImportFeedback(message, isError = false) {
   if (!importFeedback) return;
   importFeedback.textContent = message || '';
   importFeedback.classList.toggle('error', isError);
+}
+
+function isManualMeetingTask(task) {
+  return String(task?.captureType || '') === MANUAL_MEETING_CAPTURE_TYPE;
+}
+
+function taskDisplayTitle(task) {
+  return String(task?.title || task?.description || '').trim();
+}
+
+function taskReference(task) {
+  const title = taskDisplayTitle(task) || 'sem título';
+  const id = String(task?.id || '').trim();
+  if (!id || isManualMeetingTask(task)) return title;
+  return `#${id} — ${title}`;
 }
 
 function setMenuDisabled(disabled) {
@@ -101,6 +129,7 @@ function applyProfileGate(profile) {
     tabsNav?.classList.remove('hidden');
     setMenuDisabled(false);
     editProfileBtn?.classList.remove('hidden');
+    if (manualProjectInput) manualProjectInput.value = MANUAL_MEETING_PROJECT;
     setActiveTab(activeTab);
   } else {
     profilePanel?.classList.remove('hidden');
@@ -108,6 +137,7 @@ function applyProfileGate(profile) {
     statusSection?.classList.add('hidden');
     logsSection?.classList.add('hidden');
     todayTasksSection?.classList.add('hidden');
+    manualSection?.classList.add('hidden');
     importSection?.classList.add('hidden');
     setMenuDisabled(true);
     editProfileBtn?.classList.add('hidden');
@@ -142,9 +172,8 @@ function renderLogs(logs) {
     const textContainer = document.createElement('div');
     textContainer.className = 'logs-item-text';
     const strong = document.createElement('strong');
-    const accessibleTitle = log.title || `registro #${log.id}`;
-    const title = truncate(accessibleTitle, 30);
-    strong.textContent = `#${log.id} — ${title}`;
+    const accessibleTitle = taskDisplayTitle(log) || `registro ${log.id ? `#${log.id}` : ''}`.trim();
+    strong.textContent = truncate(taskReference(log), 42);
     const span = document.createElement('span');
     span.className = 'muted';
     const endLabel = log.endedAt ? fmtDateTime(log.endedAt) : 'Em andamento';
@@ -225,12 +254,19 @@ function renderTodayTasks(tasks) {
 
 function startLogAgain(log) {
   if (!log || !log.endedAt) return;
-  const payload = { id: log.id, title: log.title, url: log.url, projectName: log.projectName, captureType: log.captureType };
+  const payload = {
+    id: isManualMeetingTask(log) ? `${MANUAL_MEETING_CAPTURE_TYPE}-${Date.now()}` : log.id,
+    title: log.title,
+    description: log.description || log.title,
+    url: log.url,
+    projectName: log.projectName,
+    captureType: log.captureType,
+  };
   chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: payload }, (res) => {
     if (chrome.runtime.lastError) { handleError('Falha ao iniciar nova contagem.'); return; }
     if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
-    if (res.action === 'started') { showStatus(`Iniciado: #${res.started?.id} - ${res.started?.title}`); stopBtn.classList.remove('hidden'); refresh(); }
-    else if (res.action === 'stopped') { showStatus(`Encerrado: #${res.stopped?.id} - ${res.stopped?.title}`); stopBtn.classList.add('hidden'); refresh(); }
+    if (res.action === 'started') { showStatus(`Iniciado: ${taskReference(res.started)}`); stopBtn.classList.remove('hidden'); refresh(); }
+    else if (res.action === 'stopped') { showStatus(`Encerrado: ${taskReference(res.stopped)}`); stopBtn.classList.add('hidden'); refresh(); }
   });
 }
 
@@ -247,10 +283,47 @@ function startPendingTask(task) {
     if (chrome.runtime.lastError) { handleError('Falha ao iniciar tarefa.'); return; }
     if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
     if (res.action === 'started') {
-      showStatus(`Iniciado: #${res.started?.id} - ${res.started?.title}`);
+      showStatus(`Iniciado: ${taskReference(res.started)}`);
       stopBtn.classList.remove('hidden');
       refresh();
     }
+  });
+}
+
+function startManualMeetingTask(description) {
+  const cleanDescription = String(description || '').trim();
+  if (!cleanDescription) {
+    setManualFeedback('Informe a descrição da tarefa.', true);
+    return;
+  }
+
+  setManualFeedback('Iniciando lançamento...');
+  const payload = {
+    id: `${MANUAL_MEETING_CAPTURE_TYPE}-${Date.now()}`,
+    title: cleanDescription,
+    description: cleanDescription,
+    url: '',
+    projectName: MANUAL_MEETING_PROJECT,
+    captureType: MANUAL_MEETING_CAPTURE_TYPE,
+  };
+
+  chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: payload }, (res) => {
+    if (chrome.runtime.lastError) {
+      setManualFeedback('Falha ao iniciar lançamento.', true);
+      handleError('Falha ao iniciar lançamento manual.');
+      return;
+    }
+    if (!res?.ok) {
+      setManualFeedback(res?.error || 'Erro ao iniciar lançamento.', true);
+      showStatus(`Erro: ${res?.error || 'desconhecido'}`, true);
+      return;
+    }
+
+    setManualFeedback(`Em andamento: ${cleanDescription}`);
+    showStatus(`Iniciado: ${taskReference(res.started)}`);
+    stopBtn.classList.remove('hidden');
+    if (manualDescriptionInput) manualDescriptionInput.value = '';
+    refresh();
   });
 }
 
@@ -563,7 +636,7 @@ function refresh() {
       const logs = Array.isArray(res.logs) ? res.logs : [];
       currentTask = res.currentTask || null;
       if (currentTask && !currentTask.endedAt) {
-        showStatus(`Em andamento: #${currentTask.id} — ${currentTask.title} (desde ${fmtDate(currentTask.startedAt)})`);
+        showStatus(`Em andamento: ${taskReference(currentTask)} (desde ${fmtDate(currentTask.startedAt)})`);
         stopBtn.classList.remove('hidden');
       } else {
         showStatus('Nenhuma tarefa em andamento.');
@@ -588,6 +661,13 @@ tabButtons.forEach((button) => {
   button.addEventListener('click', () => setActiveTab(button.dataset.tab));
 });
 
+if (manualForm) {
+  manualForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    startManualMeetingTask(manualDescriptionInput?.value || '');
+  });
+}
+
 if (importMoreBtn) importMoreBtn.addEventListener('click', () => toggleImportForm(true));
 if (importLessBtn) importLessBtn.addEventListener('click', () => toggleImportForm(false));
 if (importForm) importForm.addEventListener('submit', handleImportSubmit);
@@ -597,7 +677,7 @@ function stopCurrentTask() {
   chrome.runtime.sendMessage({ type: 'startOrStopForItem', item: currentTask }, (res) => {
     if (chrome.runtime.lastError) { handleError('Falha ao parar tarefa.'); return; }
     if (!res?.ok) { showStatus(`Erro: ${res?.error || 'desconhecido'}`, true); return; }
-    if (res.action === 'stopped') { showStatus(`Encerrado: #${res.stopped?.id} — ${res.stopped?.title}`); stopBtn.classList.add('hidden'); refresh(); }
+    if (res.action === 'stopped') { showStatus(`Encerrado: ${taskReference(res.stopped)}`); stopBtn.classList.add('hidden'); refresh(); }
   });
 }
 
@@ -674,6 +754,7 @@ if (editProfileBtn) {
       statusSection?.classList.add('hidden');
       logsSection?.classList.add('hidden');
       todayTasksSection?.classList.add('hidden');
+      manualSection?.classList.add('hidden');
       importSection?.classList.add('hidden');
       setMenuDisabled(true);
     });

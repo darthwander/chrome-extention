@@ -60,6 +60,7 @@ function buildCurrentTask(item, startedAt = nowISO()) {
   return {
     id: item?.id ?? "",
     title: item?.title ?? "",
+    description: item?.description ?? "",
     projectName: item?.projectName ?? "",
     captureType: item?.captureType ?? "",
     url: item?.url ?? "",
@@ -75,6 +76,7 @@ function normalizeImportRow(row) {
   return {
     id: row.id ?? "",
     title: row.title ?? "",
+    description: row.description ?? "",
     projectName: row.projectName ?? "",
     captureType: row.captureType ?? "",
     startedAt: row.startedAt ?? "",
@@ -113,6 +115,7 @@ function toWorkLogRow(log, { minDurationSeconds = 0 } = {}) {
   return {
     id: log.id ?? "",
     title: log.title ?? "",
+    description: log.description ?? "",
     url: log.url ?? "",
     projectName: log.projectName ?? "",
     captureType: log.captureType ?? "",
@@ -313,7 +316,7 @@ function buildHeyGestorWorkLogPayload(log, projectId, { placeholder = false } = 
   return {
     project_id: projectId,
     title: normalizeString(log.title) || `Work item ${log.id || ""}`.trim(),
-    description: null,
+    description: normalizeString(log.description) || normalizeString(log.title) || null,
     work_date: formatDateYMD(new Date(startedAt)),
     started_at: startedAt,
     ended_at: endedAt,
