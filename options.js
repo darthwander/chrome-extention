@@ -375,6 +375,7 @@ function normalizeRow(row) {
     start,
     end,
     isRunning,
+    sentHeyGestor: Boolean(row.sentHeyGestor),
     durationSeconds,
     searchableText: `${row.id ?? ''} ${row.title || ''} ${row.projectName || ''}`.toLowerCase(),
   };
@@ -507,6 +508,7 @@ function getDominantProject(rows) {
 function renderTable() {
   if (!els.tbody) return;
   const rows = getSortedRows();
+  const pendingCount = rows.filter((row) => !row.isRunning && !row.sentHeyGestor).length;
   els.tbody.innerHTML = '';
 
   if (!rows.length) {
@@ -517,7 +519,8 @@ function renderTable() {
 
   els.tableEmpty?.classList.remove('show');
   if (els.tableCaption) {
-    els.tableCaption.textContent = `${rows.length} registro(s) exibidos, ordenados por ${humanSortLabel(state.sort.key)}.`;
+    const pendingLabel = pendingCount ? ` ${pendingCount} pendente(s) de envio para o HeyGestor.` : '';
+    els.tableCaption.textContent = `${rows.length} registro(s) exibidos, ordenados por ${humanSortLabel(state.sort.key)}.${pendingLabel}`;
   }
 
   rows.forEach((row) => {
@@ -552,14 +555,27 @@ function createTitleCell(row) {
   const wrapper = document.createElement('div');
   wrapper.className = 'cell-title';
 
+  const head = document.createElement('div');
+  head.className = 'cell-title-head';
+
   const title = document.createElement('strong');
   title.textContent = row.title;
+  head.appendChild(title);
+
+  if (!row.isRunning && !row.sentHeyGestor) {
+    const indicator = document.createElement('span');
+    indicator.className = 'unsent-indicator';
+    indicator.textContent = '!';
+    indicator.title = 'Registro pendente de envio para o HeyGestor';
+    indicator.setAttribute('aria-label', 'Registro pendente de envio para o HeyGestor');
+    head.appendChild(indicator);
+  }
 
   const subtitle = document.createElement('span');
   subtitle.className = 'cell-sub';
   subtitle.textContent = row.isRunning ? `Iniciada em ${fmtDate(row.start)}` : `${fmtDate(row.start)} ate ${fmtDate(row.end)}`;
 
-  wrapper.appendChild(title);
+  wrapper.appendChild(head);
   wrapper.appendChild(subtitle);
   td.appendChild(wrapper);
   return td;

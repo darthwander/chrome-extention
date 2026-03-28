@@ -446,9 +446,31 @@
       gap: 4px;
     }
 
+    .cell-title-head {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .cell-title strong {
       font-size: 0.98rem;
       line-height: 1.4;
+    }
+
+    .unsent-indicator {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff1f0;
+      color: var(--danger);
+      font-size: 0.85rem;
+      font-weight: 800;
+      line-height: 1;
+      border: 1px solid rgba(197, 48, 48, 0.18);
     }
 
     .cell-sub {
