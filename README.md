@@ -1,79 +1,134 @@
-# Rastreador de Tempo (Extensão para Chrome)
+# Time Tracker para Chrome
 
-Esta extensão permite que você rastreie o tempo gasto em itens de trabalho de várias plataformas, fornecendo uma solução de gerenciamento de tempo simples e integrada.
+Extensao Chrome para rastrear tempo em itens de trabalho, centralizar os registros localmente e sincronizar os lancamentos com o HeyGestor.
 
-## Funcionalidades
+## O que a extensao faz
 
-- **Rastreamento de Tempo Contínuo**:
-  - Inicie e pare de rastrear o tempo com um único clique.
-  - Para automaticamente a tarefa atual quando você inicia uma nova.
+- Injeta o botao `Track time` em paginas suportadas do Azure DevOps e do GLPI.
+- Mantem apenas uma tarefa em andamento por vez.
+- Salva historico e estado atual em `chrome.storage.local`.
+- Cria e atualiza work logs no HeyGestor automaticamente.
+- Exibe tarefas pendentes do dia no HeyGestor para iniciar o tracking direto pelo popup.
+- Permite lancamento manual para atividades do projeto fixo `Reunioes`.
+- Exporta os registros para `XLSX` e `JSON`.
+- Importa registros de arquivos `XLSX` e `JSON`, com validacao de datas e conflito de horarios.
+- Oferece uma pagina de opcoes com filtros, metricas e lista consolidada dos registros.
 
-- **Integrações**:
-  - **Azure DevOps**: Injeta um botão "Rastrear tempo" diretamente nos formulários de item de trabalho.
-  - **GLPI**: Adiciona um botão "Rastrear tempo" aos formulários de registros, incluindo chamados, problemas e mudanças.
-  - **HeyGestor**:
-    - Envia os registros de tempo concluídos para sua conta HeyGestor.
-    - Busca e exibe as tarefas pendentes do dia.
+## Plataformas suportadas
 
-- **Interface Popup**:
-  - Veja a tarefa em execução e sua duração.
-  - Veja uma lista de registros de tempo recentes.
-  - Inicie/pare o cronômetro manualmente.
-  - Acesse um menu com ações adicionais:
-    - **Atualizar**: Recarrega os dados de rastreamento.
-    - **Exportar**: Baixe os registros de tempo em formato XLSX ou JSON.
-    - **Importar**: Importe registros de tempo de um arquivo JSON ou XLSX.
-    - **Limpar Registros**: Apaga todos os dados de rastreamento de tempo armazenados.
-    - **Ver Log Completo**: Abre a página de opções detalhadas.
+### Azure DevOps
 
-- **Gerenciamento de Dados**:
-  - **Exportar**: Salve seus registros de tempo como arquivos XLSX ou JSON para relatórios ou backup.
-  - **Importar**: Adicione registros de tempo de arquivos externos.
-  - **Armazenamento Local**: Todos os dados são armazenados de forma segura no armazenamento local do seu navegador.
+- Detecta work items em paginas `dev.azure.com` e `*.visualstudio.com`.
+- Extrai ID, titulo, URL e projeto.
+- Injeta o botao de tracking no cabecalho do work item.
 
-- **Visualização Detalhada de Logs e Gráficos (Página de Opções)**:
-  - Uma visão abrangente de todos os seus registros de tempo.
-  - **Linha do Tempo**: Uma representação visual do seu trabalho ao longo do dia.
-  - **Gráfico de Pizza por Projeto**: Veja a distribuição do seu tempo entre diferentes projetos.
+### GLPI
 
-## Como Funciona
+- Suporta paginas como `ticket.form.php`, `change.form.php` e outros formularios em `/front/*.form.php`.
+- Tenta identificar o item atual pelo `id`, titulo da pagina e tipo da entidade.
+- Prefixa os titulos com o tipo identificado, como `Incidente`, `Problema` e `Mudanca`.
 
-1.  **Instalação**: Carregue a extensão no modo de desenvolvedor em seu navegador.
-2.  **Configuração**: Abra o popup da extensão ou a página de opções para configurar suas credenciais do HeyGestor (email e senha).
-3.  **Rastreamento**:
-    - Navegue para uma plataforma suportada (como um item de trabalho do Azure DevOps ou um registro do GLPI).
-    - Clique no botão **Rastrear tempo** injetado pela extensão para iniciar ou parar o cronômetro.
-    - Alternativamente, use o popup para gerenciar seu rastreamento de tempo.
-4.  **Visualização e Exportação**:
-    - Clique no ícone da extensão para abrir o popup para uma visão geral rápida.
-    - Vá para a página de opções para um registro detalhado, visualização da linha do tempo e para exportar seus dados.
+### HeyGestor
 
-## Instalação (Modo de Desenvolvedor)
+- Exige email e senha salvos na extensao.
+- Faz login na API e reaproveita o token salvo quando possivel.
+- Cria um work log remoto assim que uma tarefa e iniciada.
+- Atualiza o work log remoto ao encerrar a tarefa.
+- Busca tarefas pendentes do dia atual.
+- Permite reenvio manual dos registros finalizados que ficaram pendentes.
 
-1.  Abra o Chrome e vá para `chrome://extensions`.
-2.  Ative o **Modo de desenvolvedor**.
-3.  Clique em **Carregar sem compactação** e selecione a pasta que contém os arquivos da extensão.
-4.  A extensão será instalada e estará pronta para uso.
+## Fluxos disponiveis
 
-## Integração com o HeyGestor
+### Popup
 
-- **Autenticação**: A extensão requer que seu email and senha do HeyGestor sejam configurados na seção de perfil do popup ou da página de opções. Ela se autentica com a API do HeyGestor para obter um token.
-- **Envio de Logs**: Na página de opções, você pode clicar em **Enviar para o Hey Gestor** para enviar todos os registros de tempo finalizados (não "em andamento") para o endpoint `/work-logs/import`.
-- **Busca de Tarefas**: O popup busca e exibe automaticamente as tarefas pendentes atribuídas a você no HeyGestor para o dia atual, permitindo que você comece a rastreá-las rapidamente.
+O popup tem cinco areas principais:
 
-## Seletores Utilizados
+- `Status`: mostra a tarefa em andamento e permite encerra-la.
+- `Ultimos registros`: mostra os registros recentes e permite reiniciar um registro encerrado.
+- `Tarefas disponiveis hoje`: lista tarefas pendentes do HeyGestor e inicia o tracking com um clique.
+- `Lancamento manual`: inicia um registro manual no projeto `Reunioes`.
+- `Importar registro`: importa arquivos exportados anteriormente.
 
-A extensão usa os seguintes seletores de CSS para encontrar onde injetar o botão "Rastrear tempo". Se a interface do usuário da plataforma de destino mudar, estes podem precisar ser atualizados em `content.js`.
+No menu de acoes do popup tambem e possivel:
 
-- **Azure DevOps**:
-  - ID: `a[href*="/_workitems/edit/"]` (usando regex `/edit/(\d+)`)
-  - Título: `.work-item-title-textfield input`
+- atualizar os dados;
+- exportar em `XLSX`;
+- exportar em `JSON`;
+- limpar os logs locais;
+- abrir a lista completa;
+- editar email e senha.
 
-- **GLPI**:
-  - A extensão procura por vários elementos nos formulários de chamado e mudança para encontrar um ponto de ancoragem adequado para o botão.
+### Pagina de opcoes
 
-## Permissões
+A pagina `options.html` funciona como dashboard local da extensao e inclui:
 
-- `storage`: Para salvar registros de tempo e configurações do usuário localmente.
-- `activeTab`: Para interagir com a aba atualmente aberta.
-- `host_permissions`: Para acessar os domínios configurados para Azure DevOps, GLPI, etc., e injetar o script de conteúdo.
+- metricas de tempo total, quantidade de registros, tarefas em andamento e projeto dominante;
+- filtros por texto, projeto, origem e intervalo de datas;
+- atalhos rapidos para `Hoje`, `Semana` e `Mes`;
+- tabela consolidada com ordenacao por coluna;
+- resumo por projeto;
+- resumo de atividade por dia;
+- acao para exportar `XLSX`;
+- acao para limpar logs;
+- acao para enviar pendencias ao HeyGestor;
+- formulario para salvar email e senha do HeyGestor.
+
+## Regras importantes de funcionamento
+
+- A extensao exige email e senha configurados antes de iniciar qualquer tracking.
+- Ao iniciar uma nova tarefa, a tarefa atual e encerrada antes.
+- Registros encerrados que falharem no envio para o HeyGestor ficam marcados como pendentes.
+- A importacao rejeita arquivos sem as colunas obrigatorias.
+- A importacao rejeita datas invalidas.
+- A importacao rejeita periodos com inicio maior ou igual ao fim.
+- A importacao rejeita conflitos de horario entre registros importados.
+- A importacao rejeita conflitos com registros ja existentes ou com a tarefa atual.
+
+## Estrutura dos dados exportados
+
+Os arquivos exportados carregam, no minimo, estas colunas:
+
+- `ID`
+- `Titulo`
+- `Projeto`
+- `Origem`
+- `Inicio`
+- `Fim`
+- `Duracao (s)`
+- `URL`
+
+O formato `JSON` exporta `rows` com a mesma estrutura base usada pela extensao.
+
+## Instalacao em modo desenvolvedor
+
+1. Abra `chrome://extensions`.
+2. Ative `Modo do desenvolvedor`.
+3. Clique em `Carregar sem compactacao`.
+4. Selecione a pasta deste projeto.
+
+## Permissoes usadas
+
+- `storage`: salva credenciais, tarefa atual e historico local.
+- `activeTab`: interacao com a aba ativa.
+- `host_permissions`: `https://dev.azure.com/*`, `https://*.visualstudio.com/*`, `*://*/glpi/*`, `*://*/front/*.form.php*`, `http://localhost:8000/*` e `https://heygestor.on-forge.com/*`.
+
+## Arquivos principais
+
+- `manifest.json`: configuracao da extensao e permissoes.
+- `content.js`: injecao do botao e extracao de dados das paginas suportadas.
+- `background.js`: estado do tracking, importacao/exportacao e integracao com o HeyGestor.
+- `popup.html` e `popup.js`: interface rapida da extensao.
+- `options.html` e `options.js`: dashboard e gestao detalhada dos registros.
+- `exporter.js`: geracao do arquivo `XLSX`.
+
+## Estrutura do projeto
+
+- O projeto atualmente nao depende de `npm` para instalacao ou execucao.
+- Basta carregar a pasta da extensao no Chrome em modo desenvolvedor.
+- Nao ha etapa de build, bundling ou vendor manual no estado atual do repositorio.
+
+## Limitacoes atuais
+
+- Nao ha pipeline de testes automatizados configurado no projeto.
+- O envio para o HeyGestor depende de correspondencia de nome de projeto entre o registro local e os projetos retornados pela API.
+- A extensao foi desenhada para os layouts atualmente tratados em `content.js`; mudancas de interface no Azure DevOps ou no GLPI podem exigir ajuste de seletores.
