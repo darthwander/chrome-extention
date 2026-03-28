@@ -1,11 +1,10 @@
-import mermaid from './vendor/mermaid.esm.min.mjs';
+const STORAGE_KEY = 'timeTrackerGeneralListFilters';
+const PROJECT_COLORS = ['#bf5a36', '#2f855a', '#c6842f', '#4c6baf', '#8a4f7d', '#0f766e', '#b45309', '#6b7280'];
 
-const STORAGE_KEY = 'timeTrackerDashboardFilters';
-const PROJECT_COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#0EA5E9', '#8B5CF6', '#14B8A6', '#F97316', '#64748B'];
 const ORIGIN_META = {
-  azure_devops: { label: 'Azure DevOps', color: '#2563EB' },
-  glpi: { label: 'GLPI', color: '#10B981' },
-  outros: { label: 'Outros', color: '#64748B' },
+  azure_devops: { label: 'Azure DevOps' },
+  glpi: { label: 'GLPI' },
+  outros: { label: 'Outros' },
 };
 
 const state = {
@@ -13,7 +12,6 @@ const state = {
   filteredRows: [],
   sort: { key: 'startedAt', direction: 'desc' },
   filters: loadSavedFilters(),
-  lastStatusTone: 'neutral',
 };
 
 const els = {
@@ -35,131 +33,37 @@ const els = {
   shortcutButtons: Array.from(document.querySelectorAll('[data-period]')),
   sortableHeaders: Array.from(document.querySelectorAll('[data-sort]')),
   metricTotal: document.getElementById('metric-total'),
-  metricRunning: document.getElementById('metric-running'),
+  metricTotalMeta: document.getElementById('metric-total-meta'),
   metricCount: document.getElementById('metric-count'),
-  metricAverage: document.getElementById('metric-average'),
+  metricCountMeta: document.getElementById('metric-count-meta'),
+  metricRunning: document.getElementById('metric-running'),
+  metricRunningMeta: document.getElementById('metric-running-meta'),
   metricProject: document.getElementById('metric-project'),
   metricProjectMeta: document.getElementById('metric-project-meta'),
-  donutWrap: document.getElementById('donut-wrap'),
-  donutEmpty: document.getElementById('donut-empty'),
-  donut: document.getElementById('project-donut'),
-  donutLegend: document.getElementById('donut-legend'),
-  donutPrimaryShare: document.getElementById('donut-primary-share'),
-  donutPrimaryLabel: document.getElementById('donut-primary-label'),
-  timelineLayout: document.getElementById('timeline-layout'),
-  timelineEmpty: document.getElementById('timeline-empty'),
-  timelineScroller: document.getElementById('timeline-scroller'),
+  projectSummary: document.getElementById('project-summary'),
+  activitySummary: document.getElementById('activity-summary'),
   email: document.getElementById('email'),
   password: document.getElementById('password'),
   saveProfile: document.getElementById('save-profile'),
 };
 
 let savedProfile = { userEmail: '', userPassword: '' };
-let mermaidRenderToken = 0;
-
-function loadSavedFilters() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getDefaultFilters();
-    const parsed = JSON.parse(raw);
-    return {
-      ...getDefaultFilters(),
-      ...parsed,
-      sortKey: parsed?.sortKey || 'startedAt',
-      sortDirection: parsed?.sortDirection === 'asc' ? 'asc' : 'desc',
-    };
-  } catch {
-    return getDefaultFilters();
-  }
-}
-
-function getDefaultFilters() {
-  return {
-    from: '',
-    to: '',
-    search: '',
-    project: '',
-    origin: '',
-    quickPeriod: '',
-    sortKey: 'startedAt',
-    sortDirection: 'desc',
-  };
-}
-
-function saveFilters() {
-  const payload = {
-    from: els.from?.value || '',
-    to: els.to?.value || '',
-    search: els.search?.value || '',
-    project: els.projectFilter?.value || '',
-    origin: els.originFilter?.value || '',
-    quickPeriod: state.filters.quickPeriod || '',
-    sortKey: state.sort.key,
-    sortDirection: state.sort.direction,
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-}
 
 function init() {
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'base',
-    securityLevel: 'loose',
-    fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
-    gantt: {
-      axisFormat: '%d/%m %H:%M',
-      numberSectionStyles: 12,
-      topPadding: 32,
-      leftPadding: 88,
-      gridLineStartPadding: 32,
-      fontSize: 13,
-      barHeight: 26,
-      barGap: 10,
-    },
-    themeVariables: {
-      primaryColor: '#2563EB',
-      primaryTextColor: '#111827',
-      primaryBorderColor: '#1D4ED8',
-      lineColor: '#CBD5E1',
-      sectionBkgColor: '#F8FAFC',
-      sectionBkgColor2: '#FFFFFF',
-      altSectionBkgColor: '#FFFFFF',
-      taskBorderColor: '#E5E7EB',
-      taskTextColor: '#111827',
-      textColor: '#111827',
-      secondaryColor: '#DBEAFE',
-      tertiaryColor: '#F3F4F6',
-      cScale0: '#EFF6FF',
-      cScale1: '#F8FAFC',
-      cScale2: '#FFFFFF',
-    },
-  });
-  bindEvents();
   hydrateFiltersFromState();
-  chrome.storage.local.get(['userEmail', 'userPassword'], (vals) => {
-    savedProfile = {
-      userEmail: (vals.userEmail || '').trim(),
-      userPassword: (vals.userPassword || '').trim(),
-    };
-    if (els.email) els.email.value = vals.userEmail || '';
-    if (els.password) els.password.value = vals.userPassword || '';
-    updateSaveProfileVisibility();
-  });
-  state.sort = {
-    key: state.filters.sortKey || 'startedAt',
-    direction: state.filters.sortDirection || 'desc',
-  };
+  bindEvents();
+  loadProfile();
   loadDashboard();
 }
 
 function bindEvents() {
-  els.refresh?.addEventListener('click', () => loadDashboard());
+  els.refresh?.addEventListener('click', loadDashboard);
   els.export?.addEventListener('click', exportXlsx);
   els.clear?.addEventListener('click', clearLogs);
   els.sendHey?.addEventListener('click', sendToHeyGestor);
   els.saveProfile?.addEventListener('click', saveProfile);
 
-  [els.from, els.to, els.search, els.projectFilter, els.originFilter].forEach((input) => {
+  [els.search, els.projectFilter, els.originFilter, els.from, els.to].forEach((input) => {
     if (!input) return;
     const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
     input.addEventListener(eventName, () => {
@@ -194,10 +98,49 @@ function bindEvents() {
 
   [els.email, els.password].forEach((input) => {
     if (!input) return;
-    ['input', 'change', 'focus', 'blur'].forEach((evt) => input.addEventListener(evt, updateSaveProfileVisibility));
+    ['input', 'change', 'blur', 'focus'].forEach((evt) => input.addEventListener(evt, updateSaveProfileVisibility));
   });
+}
 
-  window.addEventListener('resize', renderTimeline);
+function loadProfile() {
+  chrome.storage.local.get(['userEmail', 'userPassword'], (values) => {
+    savedProfile = {
+      userEmail: (values.userEmail || '').trim(),
+      userPassword: (values.userPassword || '').trim(),
+    };
+    if (els.email) els.email.value = values.userEmail || '';
+    if (els.password) els.password.value = values.userPassword || '';
+    updateSaveProfileVisibility();
+  });
+}
+
+function loadSavedFilters() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return getDefaultFilters();
+    const parsed = JSON.parse(raw);
+    return {
+      ...getDefaultFilters(),
+      ...parsed,
+      sortKey: parsed?.sortKey || 'startedAt',
+      sortDirection: parsed?.sortDirection === 'asc' ? 'asc' : 'desc',
+    };
+  } catch {
+    return getDefaultFilters();
+  }
+}
+
+function getDefaultFilters() {
+  return {
+    from: '',
+    to: '',
+    search: '',
+    project: '',
+    origin: '',
+    quickPeriod: '',
+    sortKey: 'startedAt',
+    sortDirection: 'desc',
+  };
 }
 
 function hydrateFiltersFromState() {
@@ -208,22 +151,22 @@ function hydrateFiltersFromState() {
     key: state.filters.sortKey || 'startedAt',
     direction: state.filters.sortDirection || 'desc',
   };
-  syncShortcutButtons();
   updateSortHeaders();
+  syncShortcutButtons();
 }
 
-function updateSortHeaders() {
-  els.sortableHeaders.forEach((header) => {
-    const key = header.dataset.sort;
-    const baseLabel = header.textContent.replace(/[▲▼]\s*$/, '').trim();
-    if (key === state.sort.key) {
-      header.textContent = `${baseLabel} ${state.sort.direction === 'asc' ? '▲' : '▼'}`;
-      header.setAttribute('aria-sort', state.sort.direction === 'asc' ? 'ascending' : 'descending');
-    } else {
-      header.textContent = baseLabel;
-      header.setAttribute('aria-sort', 'none');
-    }
-  });
+function saveFilters() {
+  const payload = {
+    from: els.from?.value || '',
+    to: els.to?.value || '',
+    search: (els.search?.value || '').trim(),
+    project: els.projectFilter?.value || '',
+    origin: els.originFilter?.value || '',
+    quickPeriod: state.filters.quickPeriod || '',
+    sortKey: state.sort.key,
+    sortDirection: state.sort.direction,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
 function setStatus(message, tone = 'neutral') {
@@ -233,7 +176,6 @@ function setStatus(message, tone = 'neutral') {
   if (tone === 'success') els.statusBanner.classList.add('is-success');
   if (tone === 'error') els.statusBanner.classList.add('is-error');
   if (tone === 'loading') els.statusBanner.classList.add('is-loading');
-  state.lastStatusTone = tone;
 }
 
 function setButtonLoading(button, isLoading, loadingText) {
@@ -243,9 +185,9 @@ function setButtonLoading(button, isLoading, loadingText) {
   button.textContent = isLoading ? loadingText : button.dataset.originalText;
 }
 
-function fmtDate(iso) {
-  if (!iso) return '-';
-  const date = iso instanceof Date ? iso : new Date(iso);
+function fmtDate(value) {
+  if (!value) return '-';
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString('pt-BR', {
     day: '2-digit',
@@ -258,7 +200,7 @@ function fmtDate(iso) {
 
 function formatDuration(totalSeconds) {
   if (!Number.isFinite(totalSeconds)) return '00:00:00';
-  const safe = Math.max(0, Math.floor(totalSeconds));
+  const safe = Math.max(0, Math.round(totalSeconds));
   const hours = String(Math.floor(safe / 3600)).padStart(2, '0');
   const minutes = String(Math.floor((safe % 3600) / 60)).padStart(2, '0');
   const seconds = String(safe % 60).padStart(2, '0');
@@ -268,30 +210,32 @@ function formatDuration(totalSeconds) {
 function normalizeOrigin(origin) {
   const value = String(origin || '').trim().toLowerCase();
   if (!value) return 'outros';
-  if (value in ORIGIN_META) return value;
-  return 'outros';
+  return ORIGIN_META[value] ? value : 'outros';
 }
 
 function getOriginLabel(origin) {
-  return ORIGIN_META[normalizeOrigin(origin)]?.label || String(origin || 'Outros');
+  return ORIGIN_META[normalizeOrigin(origin)]?.label || 'Outros';
 }
 
 function projectColor(projectName) {
   const name = String(projectName || 'Sem projeto');
   let hash = 0;
-  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  for (let index = 0; index < name.length; index += 1) {
+    hash = (hash * 31 + name.charCodeAt(index)) >>> 0;
+  }
   return PROJECT_COLORS[hash % PROJECT_COLORS.length];
-}
-
-function projectBadgeStyles(projectName) {
-  const color = projectColor(projectName);
-  return { background: `${color}1A`, text: color };
 }
 
 function parseInputDate(value) {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toLocalDateTimeValue(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function startOfToday() {
@@ -304,7 +248,7 @@ function startOfWeek() {
   const day = now.getDay();
   const diff = day === 0 ? 6 : day - 1;
   const start = new Date(now);
-  start.setDate(now.getDate() - diff);
+  start.setDate(start.getDate() - diff);
   start.setHours(0, 0, 0, 0);
   return start;
 }
@@ -312,12 +256,6 @@ function startOfWeek() {
 function startOfMonth() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-}
-
-function toLocalDateTimeValue(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function applyQuickPeriod(period) {
@@ -340,6 +278,21 @@ function syncShortcutButtons() {
   });
 }
 
+function updateSortHeaders() {
+  els.sortableHeaders.forEach((header) => {
+    const key = header.dataset.sort;
+    const label = header.dataset.label || header.textContent.replace(/[▲▼]\s*$/, '').trim();
+    header.dataset.label = label;
+    if (key === state.sort.key) {
+      header.textContent = `${label} ${state.sort.direction === 'asc' ? '▲' : '▼'}`;
+      header.setAttribute('aria-sort', state.sort.direction === 'asc' ? 'ascending' : 'descending');
+    } else {
+      header.textContent = label;
+      header.setAttribute('aria-sort', 'none');
+    }
+  });
+}
+
 function updatePeriodLabel(from, to, count) {
   if (!els.periodLabel) return;
   if (!from && !to) {
@@ -347,9 +300,9 @@ function updatePeriodLabel(from, to, count) {
     els.periodLabel.textContent = '';
     return;
   }
-  const startLabel = from ? fmtDate(from) : 'início';
+  const startLabel = from ? fmtDate(from) : 'inicio';
   const endLabel = to ? fmtDate(to) : 'agora';
-  els.periodLabel.textContent = `${count} registro(s) no período ${startLabel} até ${endLabel}`;
+  els.periodLabel.textContent = `${count} registro(s) entre ${startLabel} e ${endLabel}`;
   els.periodLabel.classList.remove('hidden');
 }
 
@@ -370,7 +323,6 @@ function saveProfile() {
     updateSaveProfileVisibility();
     return;
   }
-
   chrome.storage.local.set({ userEmail, userPassword }, () => {
     savedProfile = { userEmail, userPassword };
     updateSaveProfileVisibility();
@@ -378,11 +330,61 @@ function saveProfile() {
   });
 }
 
+function loadDashboard() {
+  setStatus('Carregando registros...', 'loading');
+  chrome.runtime.sendMessage({ type: 'getStatus' }, (response) => {
+    if (chrome.runtime.lastError) {
+      setStatus(`Falha ao carregar dados: ${chrome.runtime.lastError.message || 'desconhecido'}`, 'error');
+      return;
+    }
+    if (!response?.ok) {
+      setStatus('Erro ao carregar status.', 'error');
+      return;
+    }
+
+    const logs = Array.isArray(response.logs) ? response.logs : [];
+    const currentTask = response.currentTask && !response.currentTask.endedAt ? response.currentTask : null;
+    const rows = currentTask ? [...logs, currentTask] : logs;
+    state.rows = rows.map(normalizeRow).filter(Boolean);
+    populateFilterOptions(state.rows);
+    applyFiltersAndRender(false);
+
+    if (currentTask) {
+      setStatus(`Em andamento: #${currentTask.id} - ${currentTask.title}`, 'success');
+    } else {
+      setStatus('Nenhuma tarefa em andamento.', 'success');
+    }
+  });
+}
+
+function normalizeRow(row) {
+  const start = row?.startedAt ? new Date(row.startedAt) : null;
+  if (!(start instanceof Date) || Number.isNaN(start.getTime())) return null;
+  const isRunning = !row.endedAt;
+  const end = row.endedAt ? new Date(row.endedAt) : new Date();
+  if (Number.isNaN(end.getTime())) return null;
+  const durationSeconds = Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
+  return {
+    ...row,
+    id: row.id ?? '-',
+    title: row.title || 'Sem titulo',
+    projectName: row.projectName || 'Sem projeto',
+    captureType: normalizeOrigin(row.captureType),
+    startedAt: row.startedAt,
+    endedAt: row.endedAt || '',
+    start,
+    end,
+    isRunning,
+    durationSeconds,
+    searchableText: `${row.id ?? ''} ${row.title || ''} ${row.projectName || ''}`.toLowerCase(),
+  };
+}
+
 function populateFilterOptions(rows) {
-  const projects = Array.from(new Set(rows.map((row) => row.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  const origins = Array.from(new Set(rows.map((row) => normalizeOrigin(row.captureType)))).sort((a, b) => getOriginLabel(a).localeCompare(getOriginLabel(b)));
+  const projects = Array.from(new Set(rows.map((row) => row.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const origins = Array.from(new Set(rows.map((row) => normalizeOrigin(row.captureType)))).sort((a, b) => getOriginLabel(a).localeCompare(getOriginLabel(b), 'pt-BR'));
   populateSelect(els.projectFilter, projects, state.filters.project, 'Todos');
-  populateSelect(els.originFilter, origins, state.filters.origin, 'Todos', getOriginLabel);
+  populateSelect(els.originFilter, origins, state.filters.origin, 'Todas', getOriginLabel);
 }
 
 function populateSelect(select, options, selectedValue, allLabel, labelGetter = (value) => value) {
@@ -405,58 +407,6 @@ function populateSelect(select, options, selectedValue, allLabel, labelGetter = 
   select.value = options.includes(previous) ? previous : '';
 }
 
-function loadDashboard() {
-  setStatus('Carregando dados do dashboard...', 'loading');
-  chrome.runtime.sendMessage({ type: 'getStatus' }, (res) => {
-    if (chrome.runtime.lastError) {
-      setStatus(`Falha ao carregar dados: ${chrome.runtime.lastError.message || 'desconhecido'}`, 'error');
-      return;
-    }
-
-    if (!res?.ok) {
-      setStatus('Erro ao carregar status.', 'error');
-      return;
-    }
-
-    const currentTask = res.currentTask && !res.currentTask.endedAt ? res.currentTask : null;
-    const logs = Array.isArray(res.logs) ? res.logs : [];
-    const rows = [...logs];
-    if (currentTask) rows.push({ ...currentTask });
-    state.rows = rows.map(normalizeRow).filter(Boolean);
-    populateFilterOptions(state.rows);
-    applyFiltersAndRender(false);
-
-    if (currentTask) {
-      setStatus(`Em andamento: #${currentTask.id} — ${currentTask.title} (desde ${fmtDate(currentTask.startedAt)})`, 'success');
-    } else {
-      setStatus('Nenhuma tarefa em andamento.', 'neutral');
-    }
-  });
-}
-
-function normalizeRow(row) {
-  const start = row?.startedAt ? new Date(row.startedAt) : null;
-  if (!(start instanceof Date) || Number.isNaN(start.getTime())) return null;
-  const isRunning = !row.endedAt;
-  const end = row.endedAt ? new Date(row.endedAt) : new Date();
-  if (Number.isNaN(end.getTime())) return null;
-  const durationSeconds = Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000));
-  return {
-    ...row,
-    id: row.id ?? '-',
-    title: row.title || 'Sem título',
-    projectName: row.projectName || 'Sem projeto',
-    captureType: normalizeOrigin(row.captureType),
-    startedAt: row.startedAt,
-    endedAt: row.endedAt || '',
-    start,
-    end,
-    isRunning,
-    durationSeconds,
-    searchableText: `${row.id ?? ''} ${row.title || ''}`.toLowerCase(),
-  };
-}
-
 function applyFiltersAndRender(shouldPersist = true) {
   state.filters = {
     from: els.from?.value || '',
@@ -472,17 +422,13 @@ function applyFiltersAndRender(shouldPersist = true) {
   const from = parseInputDate(state.filters.from);
   const to = parseInputDate(state.filters.to);
   const search = state.filters.search.toLowerCase();
-  const project = state.filters.project;
-  const origin = state.filters.origin;
 
   state.filteredRows = state.rows.filter((row) => {
     if (search && !row.searchableText.includes(search)) return false;
-    if (project && row.projectName !== project) return false;
-    if (origin && row.captureType !== origin) return false;
-    const startMs = row.start.getTime();
-    const endMs = row.end.getTime();
-    if (from && endMs < from.getTime()) return false;
-    if (to && startMs > to.getTime()) return false;
+    if (state.filters.project && row.projectName !== state.filters.project) return false;
+    if (state.filters.origin && row.captureType !== state.filters.origin) return false;
+    if (from && row.end.getTime() < from.getTime()) return false;
+    if (to && row.start.getTime() > to.getTime()) return false;
     return true;
   });
 
@@ -492,151 +438,52 @@ function applyFiltersAndRender(shouldPersist = true) {
 }
 
 function renderAll() {
-  renderTable();
   renderSummary();
-  renderDonut();
-  renderTimeline();
+  renderTable();
+  renderProjectSummary();
+  renderActivitySummary();
 }
 
 function getSortedRows() {
   const rows = [...state.filteredRows];
   const direction = state.sort.direction === 'asc' ? 1 : -1;
-  rows.sort((a, b) => compareRows(a, b, state.sort.key) * direction);
+  rows.sort((left, right) => compareRows(left, right, state.sort.key) * direction);
   return rows;
 }
 
-function compareRows(a, b, key) {
+function compareRows(left, right, key) {
   if (key === 'id') {
-    const aNum = Number(a.id);
-    const bNum = Number(b.id);
-    if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum;
-    return String(a.id).localeCompare(String(b.id), 'pt-BR', { numeric: true });
+    const leftNumber = Number(left.id);
+    const rightNumber = Number(right.id);
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber - rightNumber;
+    return String(left.id).localeCompare(String(right.id), 'pt-BR', { numeric: true });
   }
-  if (key === 'startedAt') return a.start - b.start;
-  if (key === 'endedAt') return a.end - b.end;
-  if (key === 'durationSeconds') return a.durationSeconds - b.durationSeconds;
-  if (key === 'captureType') return getOriginLabel(a.captureType).localeCompare(getOriginLabel(b.captureType), 'pt-BR');
-  return String(a[key] || '').localeCompare(String(b[key] || ''), 'pt-BR', { sensitivity: 'base' });
-}
-
-function humanSortLabel(key) {
-  const labels = {
-    id: 'ID',
-    title: 'título',
-    projectName: 'projeto',
-    captureType: 'origem',
-    startedAt: 'início',
-    endedAt: 'fim',
-    durationSeconds: 'duração',
-  };
-  return labels[key] || key;
-}
-
-function renderTable() {
-  if (!els.tbody) return;
-  const rows = getSortedRows();
-  const longest = rows.reduce((max, row) => (row.durationSeconds > (max?.durationSeconds || -1) ? row : max), null);
-  els.tbody.innerHTML = '';
-
-  if (!rows.length) {
-    els.tableEmpty?.classList.remove('hidden');
-    if (els.tableCaption) els.tableCaption.textContent = 'Nenhum resultado com a combinação atual de filtros.';
-    return;
-  }
-
-  els.tableEmpty?.classList.add('hidden');
-  if (els.tableCaption) {
-    els.tableCaption.textContent = `${rows.length} log(s) exibidos, ordenados por ${humanSortLabel(state.sort.key)}.`;
-  }
-
-  rows.forEach((row) => {
-    const tr = document.createElement('tr');
-    if (longest && row.id === longest.id && row.startedAt === longest.startedAt) tr.classList.add('is-highlight');
-
-    const idTd = document.createElement('td');
-    const idChip = document.createElement('span');
-    idChip.className = 'cell-id';
-    idChip.textContent = row.id;
-    idTd.appendChild(idChip);
-
-    const titleTd = document.createElement('td');
-    titleTd.className = 'title-cell';
-    const titleMain = document.createElement('div');
-    titleMain.className = 'title-main';
-    titleMain.textContent = row.title;
-    const titleSub = document.createElement('div');
-    titleSub.className = 'title-sub';
-    titleSub.textContent = row.isRunning ? 'Tarefa em andamento' : `${fmtDate(row.start)} até ${fmtDate(row.end)}`;
-    titleTd.appendChild(titleMain);
-    titleTd.appendChild(titleSub);
-
-    const projectTd = document.createElement('td');
-    const badge = document.createElement('span');
-    badge.className = 'badge';
-    const badgeStyles = projectBadgeStyles(row.projectName);
-    badge.style.background = badgeStyles.background;
-    badge.style.color = badgeStyles.text;
-    const dot = document.createElement('span');
-    dot.className = 'badge-dot';
-    dot.style.background = badgeStyles.text;
-    const badgeText = document.createElement('span');
-    badgeText.textContent = row.projectName;
-    badge.appendChild(dot);
-    badge.appendChild(badgeText);
-    projectTd.appendChild(badge);
-
-    const originTd = document.createElement('td');
-    const originText = document.createElement('span');
-    originText.className = 'origin-text';
-    originText.textContent = getOriginLabel(row.captureType);
-    originTd.appendChild(originText);
-
-    const startTd = document.createElement('td');
-    startTd.textContent = fmtDate(row.start);
-
-    const endTd = document.createElement('td');
-    endTd.textContent = row.isRunning ? 'Em andamento' : fmtDate(row.end);
-
-    const durationTd = document.createElement('td');
-    const durationChip = document.createElement('span');
-    durationChip.className = 'duration-chip';
-    durationChip.textContent = formatDuration(row.durationSeconds);
-    durationTd.appendChild(durationChip);
-
-    const actionTd = document.createElement('td');
-    if (row.url) {
-      const link = document.createElement('a');
-      link.className = 'go-link';
-      link.href = row.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.setAttribute('aria-label', `Abrir ${row.title}`);
-      link.textContent = '↗';
-      actionTd.appendChild(link);
-    } else {
-      actionTd.textContent = '—';
-    }
-
-    [idTd, titleTd, projectTd, originTd, startTd, endTd, durationTd, actionTd].forEach((td) => tr.appendChild(td));
-    els.tbody.appendChild(tr);
-  });
+  if (key === 'startedAt') return left.start - right.start;
+  if (key === 'endedAt') return left.end - right.end;
+  if (key === 'durationSeconds') return left.durationSeconds - right.durationSeconds;
+  if (key === 'captureType') return getOriginLabel(left.captureType).localeCompare(getOriginLabel(right.captureType), 'pt-BR');
+  return String(left[key] || '').localeCompare(String(right[key] || ''), 'pt-BR', { sensitivity: 'base' });
 }
 
 function renderSummary() {
   const rows = state.filteredRows;
   const totalSeconds = rows.reduce((sum, row) => sum + row.durationSeconds, 0);
-  const runningCount = rows.filter((row) => row.isRunning).length;
-  const average = rows.length ? totalSeconds / rows.length : 0;
+  const running = rows.filter((row) => row.isRunning);
   const dominant = getDominantProject(rows);
+  const average = rows.length ? totalSeconds / rows.length : 0;
 
   if (els.metricTotal) els.metricTotal.textContent = formatDuration(totalSeconds);
-  if (els.metricRunning) {
-    els.metricRunning.textContent = runningCount
-      ? `${runningCount} tarefa(s) em andamento dentro do recorte atual.`
-      : 'Sem tarefas em andamento.';
+  if (els.metricTotalMeta) {
+    els.metricTotalMeta.textContent = rows.length ? `Media por registro: ${formatDuration(average)}` : 'Total acumulado no recorte atual.';
   }
   if (els.metricCount) els.metricCount.textContent = String(rows.length);
-  if (els.metricAverage) els.metricAverage.textContent = `Média por tarefa: ${formatDuration(average)}`;
+  if (els.metricCountMeta) {
+    els.metricCountMeta.textContent = rows.length ? `${rows.length} registro(s) apos a filtragem.` : 'Nenhum registro filtrado.';
+  }
+  if (els.metricRunning) els.metricRunning.textContent = String(running.length);
+  if (els.metricRunningMeta) {
+    els.metricRunningMeta.textContent = running.length ? `${running.length} tarefa(s) ainda abertas.` : 'Sem tarefas em andamento.';
+  }
   if (els.metricProject) els.metricProject.textContent = dominant ? dominant.project : '-';
   if (els.metricProjectMeta) {
     els.metricProjectMeta.textContent = dominant
@@ -647,166 +494,240 @@ function renderSummary() {
 
 function getDominantProject(rows) {
   const totals = new Map();
-  rows.forEach((row) => totals.set(row.projectName, (totals.get(row.projectName) || 0) + row.durationSeconds));
-  const entries = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+  rows.forEach((row) => {
+    totals.set(row.projectName, (totals.get(row.projectName) || 0) + row.durationSeconds);
+  });
+  const entries = Array.from(totals.entries()).sort((left, right) => right[1] - left[1]);
   if (!entries.length) return null;
   const [project, seconds] = entries[0];
-  const grand = entries.reduce((sum, [, value]) => sum + value, 0) || 1;
-  return { project, seconds, share: (seconds / grand) * 100 };
+  const grandTotal = entries.reduce((sum, [, value]) => sum + value, 0) || 1;
+  return { project, seconds, share: (seconds / grandTotal) * 100 };
 }
 
-function renderDonut() {
+function renderTable() {
+  if (!els.tbody) return;
+  const rows = getSortedRows();
+  els.tbody.innerHTML = '';
+
+  if (!rows.length) {
+    if (els.tableCaption) els.tableCaption.textContent = 'Nenhum resultado com a combinacao atual de filtros.';
+    els.tableEmpty?.classList.add('show');
+    return;
+  }
+
+  els.tableEmpty?.classList.remove('show');
+  if (els.tableCaption) {
+    els.tableCaption.textContent = `${rows.length} registro(s) exibidos, ordenados por ${humanSortLabel(state.sort.key)}.`;
+  }
+
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    if (row.isRunning) tr.classList.add('is-running');
+
+    appendCell(tr, createTextCell(String(row.id)));
+    appendCell(tr, createTitleCell(row));
+    appendCell(tr, createProjectCell(row.projectName));
+    appendCell(tr, createOriginCell(row.captureType));
+    appendCell(tr, createTextCell(fmtDate(row.start)));
+    appendCell(tr, createTextCell(row.isRunning ? 'Em andamento' : fmtDate(row.end)));
+    appendCell(tr, createDurationCell(formatDuration(row.durationSeconds)));
+    appendCell(tr, createActionCell(row.url));
+
+    els.tbody.appendChild(tr);
+  });
+}
+
+function appendCell(row, cell) {
+  row.appendChild(cell);
+}
+
+function createTextCell(text) {
+  const td = document.createElement('td');
+  td.textContent = text;
+  return td;
+}
+
+function createTitleCell(row) {
+  const td = document.createElement('td');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cell-title';
+
+  const title = document.createElement('strong');
+  title.textContent = row.title;
+
+  const subtitle = document.createElement('span');
+  subtitle.className = 'cell-sub';
+  subtitle.textContent = row.isRunning ? `Iniciada em ${fmtDate(row.start)}` : `${fmtDate(row.start)} ate ${fmtDate(row.end)}`;
+
+  wrapper.appendChild(title);
+  wrapper.appendChild(subtitle);
+  td.appendChild(wrapper);
+  return td;
+}
+
+function createProjectCell(projectName) {
+  const td = document.createElement('td');
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.style.background = `${projectColor(projectName)}18`;
+  chip.style.color = projectColor(projectName);
+
+  const dot = document.createElement('span');
+  dot.className = 'chip-dot';
+
+  const text = document.createElement('span');
+  text.textContent = projectName;
+
+  chip.appendChild(dot);
+  chip.appendChild(text);
+  td.appendChild(chip);
+  return td;
+}
+
+function createOriginCell(origin) {
+  const td = document.createElement('td');
+  const badge = document.createElement('span');
+  badge.className = 'origin-badge';
+  badge.textContent = getOriginLabel(origin);
+  td.appendChild(badge);
+  return td;
+}
+
+function createDurationCell(text) {
+  const td = document.createElement('td');
+  const badge = document.createElement('span');
+  badge.className = 'duration-badge';
+  badge.textContent = text;
+  td.appendChild(badge);
+  return td;
+}
+
+function createActionCell(url) {
+  const td = document.createElement('td');
+  if (!url) {
+    td.textContent = '-';
+    return td;
+  }
+  const link = document.createElement('a');
+  link.className = 'row-link';
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = '↗';
+  td.appendChild(link);
+  return td;
+}
+
+function humanSortLabel(key) {
+  const labels = {
+    id: 'ID',
+    title: 'titulo',
+    projectName: 'projeto',
+    captureType: 'origem',
+    startedAt: 'inicio',
+    endedAt: 'fim',
+    durationSeconds: 'duracao',
+  };
+  return labels[key] || key;
+}
+
+function renderProjectSummary() {
+  if (!els.projectSummary) return;
+  els.projectSummary.innerHTML = '';
+
   const totals = new Map();
   state.filteredRows.forEach((row) => {
     totals.set(row.projectName, (totals.get(row.projectName) || 0) + row.durationSeconds);
   });
 
-  const entries = Array.from(totals.entries()).filter(([, seconds]) => seconds > 0).sort((a, b) => b[1] - a[1]);
+  const entries = Array.from(totals.entries()).sort((left, right) => right[1] - left[1]);
   if (!entries.length) {
-    els.donutWrap?.classList.add('hidden');
-    els.donutEmpty?.classList.remove('hidden');
-    els.donutLegend.innerHTML = '';
-    els.donut.style.background = 'conic-gradient(#e5e7eb 0 100%)';
-    if (els.donutPrimaryShare) els.donutPrimaryShare.textContent = '0%';
-    if (els.donutPrimaryLabel) els.donutPrimaryLabel.textContent = 'Sem dados';
+    els.projectSummary.innerHTML = '<div class="muted-note">Sem dados para resumir.</div>';
     return;
   }
 
-  els.donutWrap?.classList.remove('hidden');
-  els.donutEmpty?.classList.add('hidden');
+  const grandTotal = entries.reduce((sum, [, seconds]) => sum + seconds, 0) || 1;
+  entries.slice(0, 6).forEach(([project, seconds]) => {
+    const pct = Math.max(2, Math.round((seconds / grandTotal) * 100));
+    const row = document.createElement('div');
+    row.className = 'project-row';
 
-  const grand = entries.reduce((sum, [, seconds]) => sum + seconds, 0);
-  let cursor = 0;
-  const stops = [];
-  els.donutLegend.innerHTML = '';
+    const line = document.createElement('div');
+    line.className = 'project-line';
 
-  entries.forEach(([project, seconds], index) => {
-    const color = projectColor(project);
-    const pct = (seconds / grand) * 100;
-    stops.push(`${color} ${cursor}% ${cursor + pct}%`);
-    cursor += pct;
+    const left = document.createElement('span');
+    left.textContent = project;
 
-    const legend = document.createElement('div');
-    legend.className = 'legend-row';
-    const swatch = document.createElement('span');
-    swatch.className = 'legend-swatch';
-    swatch.style.background = color;
-    const name = document.createElement('span');
-    name.className = 'legend-name';
-    name.textContent = project;
-    const value = document.createElement('span');
-    value.className = 'legend-value';
-    value.textContent = `${pct.toFixed(0)}%`;
-    legend.appendChild(swatch);
-    legend.appendChild(name);
-    legend.appendChild(value);
-    els.donutLegend.appendChild(legend);
+    const right = document.createElement('span');
+    right.textContent = `${formatDuration(seconds)} · ${Math.round((seconds / grandTotal) * 100)}%`;
 
-    if (index === 0) {
-      if (els.donutPrimaryShare) els.donutPrimaryShare.textContent = `${pct.toFixed(0)}%`;
-      if (els.donutPrimaryLabel) els.donutPrimaryLabel.textContent = project;
-    }
+    const track = document.createElement('div');
+    track.className = 'bar-track';
+
+    const fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.width = `${pct}%`;
+    fill.style.background = `linear-gradient(90deg, ${projectColor(project)}, #d58d4b)`;
+
+    line.appendChild(left);
+    line.appendChild(right);
+    track.appendChild(fill);
+    row.appendChild(line);
+    row.appendChild(track);
+    els.projectSummary.appendChild(row);
+  });
+}
+
+function renderActivitySummary() {
+  if (!els.activitySummary) return;
+  els.activitySummary.innerHTML = '';
+
+  const totals = new Map();
+  state.filteredRows.forEach((row) => {
+    const dayKey = row.start.toLocaleDateString('pt-BR');
+    totals.set(dayKey, (totals.get(dayKey) || 0) + row.durationSeconds);
   });
 
-  els.donut.style.background = `conic-gradient(${stops.join(', ')})`;
-}
-
-async function renderTimeline() {
-  if (!els.timelineLayout) return;
-  const rows = getSortedRows();
-  const token = ++mermaidRenderToken;
-  const renderId = `tt-mermaid-${Date.now()}-${token}`;
-  els.timelineLayout.innerHTML = '';
-
-  if (!rows.length) {
-    els.timelineEmpty?.classList.remove('hidden');
-    els.timelineScroller?.classList.add('hidden');
-    return;
-  }
-
-  els.timelineEmpty?.classList.add('hidden');
-  els.timelineScroller?.classList.remove('hidden');
-
-  const chart = buildMermaidGantt(rows);
-  if (!chart) {
-    els.timelineEmpty?.classList.remove('hidden');
-    els.timelineScroller?.classList.add('hidden');
-    return;
-  }
-
-  try {
-    const { svg, bindFunctions } = await mermaid.render(renderId, chart);
-    if (token !== mermaidRenderToken) return;
-    els.timelineLayout.innerHTML = svg;
-    if (typeof bindFunctions === 'function') bindFunctions(els.timelineLayout);
-  } catch (error) {
-    els.timelineEmpty?.classList.remove('hidden');
-    els.timelineScroller?.classList.add('hidden');
-    setStatus(`Falha ao renderizar Gantt Mermaid: ${error?.message || 'desconhecido'}`, 'error');
-  }
-}
-
-function buildMermaidGantt(rows) {
-  if (!rows.length) return '';
-  const longest = rows.reduce((max, row) => (row.durationSeconds > (max?.durationSeconds || -1) ? row : max), null);
-  const byProject = new Map();
-  rows.forEach((row) => {
-    const project = row.projectName || 'Sem projeto';
-    if (!byProject.has(project)) byProject.set(project, []);
-    byProject.get(project).push(row);
+  const entries = Array.from(totals.entries()).sort((left, right) => {
+    const [leftDay, leftMonth, leftYear] = left[0].split('/');
+    const [rightDay, rightMonth, rightYear] = right[0].split('/');
+    return new Date(`${leftYear}-${leftMonth}-${leftDay}`) - new Date(`${rightYear}-${rightMonth}-${rightDay}`);
   });
 
-  const lines = [
-    'gantt',
-    'title Time Tracker',
-    'dateFormat YYYY-MM-DD HH:mm:ss',
-    'axisFormat %d/%m %H:%M',
-    'tickInterval 2hour',
-    'todayMarker off',
-  ];
+  if (!entries.length) {
+    els.activitySummary.innerHTML = '<div class="muted-note">Sem atividade no periodo.</div>';
+    return;
+  }
 
-  Array.from(byProject.entries())
-    .sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'))
-    .forEach(([project, projectRows], sectionIndex) => {
-      lines.push(`section ${escapeMermaidLabel(project)}`);
+  const maxSeconds = Math.max(...entries.map(([, seconds]) => seconds), 1);
+  entries.slice(-7).forEach(([day, seconds]) => {
+    const pct = Math.max(3, Math.round((seconds / maxSeconds) * 100));
+    const row = document.createElement('div');
+    row.className = 'activity-row';
 
-      projectRows
-        .slice()
-        .sort((a, b) => a.start - b.start)
-        .forEach((row, rowIndex) => {
-          const taskId = `task_${sectionIndex}_${rowIndex}_${sanitizeMermaidId(row.id)}`;
-          const flags = [];
-          if (row.isRunning) flags.push('active');
-          if (longest && row.id === longest.id && row.startedAt === longest.startedAt) flags.push('crit');
-          const header = `${escapeMermaidLabel(`#${row.id} ${truncateMermaid(row.title, 54)}`)} :${flags.length ? `${flags.join(', ')}, ` : ' '}${taskId}, `;
-          lines.push(`${header}${toMermaidDateTime(row.start)}, ${toMermaidDateTime(row.end)}`);
-        });
-    });
+    const line = document.createElement('div');
+    line.className = 'activity-line';
 
-  return lines.join('\n');
-}
+    const left = document.createElement('span');
+    left.textContent = day;
 
-function toMermaidDateTime(date) {
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
+    const right = document.createElement('span');
+    right.textContent = formatDuration(seconds);
 
-function sanitizeMermaidId(value) {
-  return String(value ?? 'item').replace(/[^a-zA-Z0-9_]/g, '_');
-}
+    const track = document.createElement('div');
+    track.className = 'bar-track';
 
-function escapeMermaidLabel(value) {
-  return String(value || '')
-    .replace(/"/g, "'")
-    .replace(/:/g, ' -')
-    .replace(/\n+/g, ' ')
-    .trim();
-}
+    const fill = document.createElement('div');
+    fill.className = 'bar-fill activity-fill';
+    fill.style.width = `${pct}%`;
 
-function truncateMermaid(value, max) {
-  const text = String(value || '').trim();
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 3)}...`;
+    line.appendChild(left);
+    line.appendChild(right);
+    track.appendChild(fill);
+    row.appendChild(line);
+    row.appendChild(track);
+    els.activitySummary.appendChild(row);
+  });
 }
 
 function normalizeExportRow(row) {
@@ -824,35 +745,35 @@ function normalizeExportRow(row) {
 
 function exportXlsx() {
   setButtonLoading(els.export, true, 'Exportando...');
-  chrome.runtime.sendMessage({ type: 'getExportData' }, (res) => {
+  chrome.runtime.sendMessage({ type: 'getExportData' }, (response) => {
     setButtonLoading(els.export, false);
     if (chrome.runtime.lastError) {
       setStatus(`Falha ao exportar: ${chrome.runtime.lastError.message || 'desconhecido'}`, 'error');
       return;
     }
-    if (!res?.ok) {
-      setStatus(`Erro ao exportar: ${res?.error || 'desconhecido'}`, 'error');
+    if (!response?.ok) {
+      setStatus(`Erro ao exportar: ${response?.error || 'desconhecido'}`, 'error');
       return;
     }
-    const exportedAt = res.exportedAt;
-    const rows = Array.isArray(res.rows) ? res.rows.map(normalizeExportRow) : [];
+    const exportedAt = response.exportedAt;
+    const rows = Array.isArray(response.rows) ? response.rows.map(normalizeExportRow) : [];
     const workbookBytes = ExcelExporter.buildXlsx(rows, exportedAt);
     const filename = `azdo-time-tracker-${ExcelExporter.formatExportFileDate(exportedAt)}.xlsx`;
     ExcelExporter.downloadXlsx(filename, workbookBytes);
-    setStatus('Exportação XLSX concluída.', 'success');
+    setStatus('Exportacao XLSX concluida.', 'success');
   });
 }
 
 function clearLogs() {
   setButtonLoading(els.clear, true, 'Limpando...');
-  chrome.runtime.sendMessage({ type: 'clearLogs' }, (res) => {
+  chrome.runtime.sendMessage({ type: 'clearLogs' }, (response) => {
     setButtonLoading(els.clear, false);
     if (chrome.runtime.lastError) {
       setStatus(`Falha ao limpar logs: ${chrome.runtime.lastError.message || 'desconhecido'}`, 'error');
       return;
     }
-    if (!res?.ok) {
-      setStatus(`Erro ao limpar logs: ${res?.error || 'desconhecido'}`, 'error');
+    if (!response?.ok) {
+      setStatus(`Erro ao limpar logs: ${response?.error || 'desconhecido'}`, 'error');
       return;
     }
     setStatus('Logs removidos com sucesso.', 'success');
@@ -863,17 +784,17 @@ function clearLogs() {
 function sendToHeyGestor() {
   setButtonLoading(els.sendHey, true, 'Enviando...');
   setStatus('Enviando registros para HeyGestor...', 'loading');
-  chrome.runtime.sendMessage({ type: 'pushHeyGestor' }, (res) => {
+  chrome.runtime.sendMessage({ type: 'pushHeyGestor' }, (response) => {
     setButtonLoading(els.sendHey, false);
     if (chrome.runtime.lastError) {
       setStatus(`Falha ao enviar: ${chrome.runtime.lastError.message || 'desconhecido'}`, 'error');
       return;
     }
-    if (!res?.ok) {
-      setStatus(`Erro ao enviar: ${res?.error || 'desconhecido'}`, 'error');
+    if (!response?.ok) {
+      setStatus(`Erro ao enviar: ${response?.error || 'desconhecido'}`, 'error');
       return;
     }
-    setStatus('Envio concluído para HeyGestor.', 'success');
+    setStatus('Envio concluido para HeyGestor.', 'success');
     loadDashboard();
   });
 }
