@@ -10,7 +10,7 @@ Esta extensão permite que você rastreie o tempo gasto em itens de trabalho de 
 
 - **Integrações**:
   - **Azure DevOps**: Injeta um botão "Rastrear tempo" diretamente nos formulários de item de trabalho.
-  - **GLPI**: Adiciona um botão "Rastrear tempo" aos formulários de chamado e mudança.
+  - **GLPI**: Adiciona um botão "Rastrear tempo" aos formulários de registros, incluindo chamados, problemas e mudanças.
   - **HeyGestor**:
     - Envia os registros de tempo concluídos para sua conta HeyGestor.
     - Busca e exibe as tarefas pendentes do dia.
@@ -41,7 +41,7 @@ Esta extensão permite que você rastreie o tempo gasto em itens de trabalho de 
 1.  **Instalação**: Carregue a extensão no modo de desenvolvedor em seu navegador.
 2.  **Configuração**: Abra o popup da extensão ou a página de opções para configurar suas credenciais do HeyGestor (email e senha).
 3.  **Rastreamento**:
-    - Navegue para uma plataforma suportada (como um item de trabalho do Azure DevOps ou um chamado do GLPI).
+    - Navegue para uma plataforma suportada (como um item de trabalho do Azure DevOps ou um registro do GLPI).
     - Clique no botão **Rastrear tempo** injetado pela extensão para iniciar ou parar o cronômetro.
     - Alternativamente, use o popup para gerenciar seu rastreamento de tempo.
 4.  **Visualização e Exportação**:

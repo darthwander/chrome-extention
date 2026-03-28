@@ -68,18 +68,9 @@
       }
     }
 
-    if (isGlpiTicketPage()) {
-      const anchor = findGlpiAnchor();
-      if (anchor) {
-        return { anchor, extractItem: extractGlpiWorkItem };
-      }
-    }
-
-    if (isGlpiChangePage()) {
-      const anchor = findGlpiChangeAnchor();
-      if (anchor) {
-        return { anchor, extractItem: extractGlpiChangeItem };
-      }
+    const glpiContext = getGlpiInjectionContext();
+    if (glpiContext) {
+      return glpiContext;
     }
 
     return null;
@@ -111,6 +102,27 @@
 
   function isGlpiChangePage() {
     return window.location.pathname === "/front/change.form.php";
+  }
+
+  function isGenericGlpiFormPage() {
+    return /\/front\/[^/]+\.form\.php$/i.test(window.location.pathname);
+  }
+
+  function getGlpiInjectionContext() {
+    if (!isGenericGlpiFormPage()) return null;
+
+    const anchor = isGlpiChangePage() ? findGlpiChangeAnchor() : findGlpiAnchor();
+    if (!anchor) return null;
+
+    if (isGlpiTicketPage()) {
+      return { anchor, extractItem: extractGlpiWorkItem };
+    }
+
+    if (isGlpiChangePage()) {
+      return { anchor, extractItem: extractGlpiChangeItem };
+    }
+
+    return { anchor, extractItem: extractGenericGlpiItem };
   }
 
   function findGlpiAnchor() {
@@ -155,10 +167,12 @@
       if (altId?.value) id = altId.value.trim();
     }
 
+    const typeLabel = getGlpiTypeLabel("ticket");
     const pageTitle = (document.querySelector("title")?.textContent || "").trim();
     const headerTitle = document.querySelector(".card-title.card-header, .page-title, h1, h2")?.textContent?.trim();
     const baseTitle = pageTitle || headerTitle || "";
-    const title = baseTitle || (id ? `Ticket ${id}` : "");
+    const rawTitle = baseTitle || (id ? `${typeLabel} ${id}` : "");
+    const title = prefixGlpiTitle(typeLabel, rawTitle);
 
     if (!id || !title) return null;
 
@@ -173,6 +187,7 @@
 
   function extractGlpiChangeItem() {
     const url = window.location.href;
+    const typeLabel = getGlpiTypeLabel("change");
     const searchParams = new URLSearchParams(window.location.search);
     let id = searchParams.get("id");
 
@@ -198,17 +213,92 @@
       title = title.replace(idCleanupRegex, "").trim();
     }
 
-    if (!title && id) title = `Change ${id}`;
+    if (!title && id) title = `${typeLabel} ${id}`;
     if (!id || !title) return null;
 
     return {
       id,
-      title,
+      title: prefixGlpiTitle(typeLabel, title),
       url,
       projectName: "GLPI",
       captureType: "glpi",
       type: "change",
     };
+  }
+
+  function extractGenericGlpiItem() {
+    const url = window.location.href;
+    const pathMatch = window.location.pathname.match(/\/front\/([^/]+)\.form\.php$/i);
+    const entityName = pathMatch?.[1] || "item";
+    const typeLabel = getGlpiTypeLabel(entityName);
+    const searchParams = new URLSearchParams(window.location.search);
+    let id = searchParams.get("id");
+
+    if (!id) {
+      const altId = document.querySelector('input[name="id"], input[name="items_id"], input[name$="_id"]');
+      if (altId?.value) id = altId.value.trim();
+    }
+
+    if (!id) {
+      const titleText = document.querySelector("title")?.textContent || "";
+      const titleMatch = titleText.match(/#?(\d+)/);
+      if (titleMatch) id = titleMatch[1];
+    }
+
+    const headerCandidates = [
+      document.querySelector("h3.navigationheader-title")?.textContent,
+      document.querySelector(".card-title.card-header")?.textContent,
+      document.querySelector(".page-title")?.textContent,
+      document.querySelector("h1")?.textContent,
+      document.querySelector("h2")?.textContent,
+      document.querySelector("title")?.textContent,
+    ]
+      .map((value) => (value || "").trim())
+      .filter(Boolean);
+
+    let title = headerCandidates[0] || "";
+    if (title && id) {
+      const idCleanupRegex = new RegExp(`\\s*\\(?#?${id}\\)?\\s*$`);
+      title = title.replace(idCleanupRegex, "").trim();
+    }
+
+    if (!title && id) {
+      title = `${typeLabel} ${id}`;
+    }
+
+    if (!id || !title) return null;
+
+    return {
+      id,
+      title: prefixGlpiTitle(typeLabel, title),
+      url,
+      projectName: "GLPI",
+      captureType: "glpi",
+      type: entityName,
+    };
+  }
+
+  function getGlpiTypeLabel(value) {
+    const normalized = String(value || "").toLowerCase();
+    if (normalized === "ticket") return "Incidente";
+    if (normalized === "problem") return "Problema";
+    if (normalized === "change") return "Mudanca";
+    return humanizeGlpiEntityName(normalized || "item");
+  }
+
+  function prefixGlpiTitle(typeLabel, title) {
+    const cleanType = String(typeLabel || "").trim();
+    const cleanTitle = String(title || "").trim();
+    if (!cleanType) return cleanTitle;
+    if (!cleanTitle) return cleanType;
+    if (cleanTitle.toLowerCase().startsWith(`${cleanType.toLowerCase()}:`)) return cleanTitle;
+    return `${cleanType}: ${cleanTitle}`;
+  }
+
+  function humanizeGlpiEntityName(value) {
+    return String(value || "item")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   }
 
   function extractProjectName(workItemUrl) {
