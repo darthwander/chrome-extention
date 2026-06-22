@@ -30,7 +30,7 @@
             <button id="export-json" type="button" class="menu-item" role="menuitem" disabled>Exportar JSON</button>
             <button id="clear" type="button" class="menu-item" role="menuitem" disabled>Limpar Logs</button>
             <button id="open-logs" type="button" class="menu-item" role="menuitem" disabled>Abrir lista completa</button>
-            <button id="edit-profile" type="button" class="menu-item hidden" role="menuitem">Editar email e senha</button>
+            <button id="edit-profile" type="button" class="menu-item hidden" role="menuitem">Configurar sincronização</button>
           </div>
         </div>
         <h1 class="title">Time Tracker</h1>
@@ -50,13 +50,15 @@
             <input id="profile-password" type="password" placeholder="********" />
           </div>
           <button id="save-profile-popup" type="button" class="btn">Salvar</button>
+          <button id="use-offline-popup" type="button" class="btn btn-secondary">Usar offline</button>
         </div>
+        <p class="subtitle">No modo offline, os dados ficam somente neste navegador e nenhuma request é realizada.</p>
       </section>
 
       <nav id="tabs-nav" class="tabs hidden" aria-label="Navegação da popup">
         <button type="button" class="tab-button active" data-tab="status">Status</button>
         <button type="button" class="tab-button" data-tab="logs">Últimos registros</button>
-        <button type="button" class="tab-button" data-tab="today">Tarefas disponíveis hoje</button>
+        <button id="today-tasks-tab" type="button" class="tab-button" data-tab="today">Tarefas disponíveis hoje</button>
         <button type="button" class="tab-button" data-tab="manual">Lançamento manual</button>
         <button type="button" class="tab-button" data-tab="import">Importar registro</button>
       </nav>

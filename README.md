@@ -31,6 +31,7 @@ Extensao Chrome para rastrear tempo em itens de trabalho, centralizar os registr
 ### HeyGestor
 
 - Exige email e senha salvos na extensao.
+- Pode ser desativado pelo modo offline; nesse modo nenhuma request de rede e realizada.
 - Faz login na API e reaproveita o token salvo quando possivel.
 - Cria um work log remoto assim que uma tarefa e iniciada.
 - Atualiza o work log remoto ao encerrar a tarefa.
@@ -75,7 +76,8 @@ A pagina `options.html` funciona como dashboard local da extensao e inclui:
 
 ## Regras importantes de funcionamento
 
-- A extensao exige email e senha configurados antes de iniciar qualquer tracking.
+- A extensao exige email e senha configurados ou a selecao do modo offline antes de iniciar qualquer tracking.
+- No modo offline, tarefas e registros permanecem locais e nenhuma request e feita ao HeyGestor.
 - Ao iniciar uma nova tarefa, a tarefa atual e encerrada antes.
 - Registros encerrados que falharem no envio para o HeyGestor ficam marcados como pendentes.
 - A importacao rejeita arquivos sem as colunas obrigatorias.

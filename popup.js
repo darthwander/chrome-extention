@@ -13,6 +13,7 @@ const profilePanel = document.getElementById('profile-panel');
 const profileEmailInput = document.getElementById('profile-email');
 const profilePasswordInput = document.getElementById('profile-password');
 const saveProfilePopupBtn = document.getElementById('save-profile-popup');
+const useOfflinePopupBtn = document.getElementById('use-offline-popup');
 const tabsNav = document.getElementById('tabs-nav');
 const tabButtons = Array.from(document.querySelectorAll('[data-tab]'));
 const tabPanels = Array.from(document.querySelectorAll('[data-panel]'));
@@ -20,6 +21,7 @@ const statusSection = document.getElementById('status-section');
 const logsSection = document.getElementById('logs-section');
 const todayTasksSection = document.getElementById('today-tasks-section');
 const todayTasksList = document.getElementById('today-tasks');
+const todayTasksTab = document.getElementById('today-tasks-tab');
 const manualSection = document.getElementById('manual-section');
 const manualForm = document.getElementById('manual-form');
 const manualProjectInput = document.getElementById('manual-project');
@@ -33,7 +35,7 @@ const importFileInput = document.getElementById('import-file');
 const importFeedback = document.getElementById('import-feedback');
 
 let currentTask = null;
-let cachedProfile = { userEmail: '', userPassword: '' };
+let cachedProfile = { userEmail: '', userPassword: '', offlineMode: false };
 let activeTab = 'status';
 const MANUAL_MEETING_PROJECT = 'Reuniões';
 const MANUAL_MEETING_CAPTURE_TYPE = 'manual-reunioes';
@@ -123,12 +125,15 @@ function setActiveTab(tabId) {
 }
 
 function applyProfileGate(profile) {
-  const hasProfile = !!(profile?.userEmail && profile?.userPassword);
+  const offlineMode = profile?.offlineMode === true;
+  const hasProfile = offlineMode || !!(profile?.userEmail && profile?.userPassword);
   if (hasProfile) {
     profilePanel?.classList.add('hidden');
     tabsNav?.classList.remove('hidden');
     setMenuDisabled(false);
     editProfileBtn?.classList.remove('hidden');
+    todayTasksTab?.classList.toggle('hidden', offlineMode);
+    if (offlineMode && activeTab === 'today') activeTab = 'status';
     if (manualProjectInput) manualProjectInput.value = MANUAL_MEETING_PROJECT;
     setActiveTab(activeTab);
   } else {
@@ -141,6 +146,7 @@ function applyProfileGate(profile) {
     importSection?.classList.add('hidden');
     setMenuDisabled(true);
     editProfileBtn?.classList.add('hidden');
+    todayTasksTab?.classList.remove('hidden');
   }
 }
 
@@ -621,10 +627,14 @@ function loadTodayTasks() {
 
 function refresh() {
   // Gate first
-  chrome.storage.local.get(['userEmail','userPassword'], (vals) => {
-    cachedProfile = { userEmail: (vals.userEmail||'').trim(), userPassword: (vals.userPassword||'').trim() };
+  chrome.storage.local.get(['userEmail','userPassword','offlineMode'], (vals) => {
+    cachedProfile = {
+      userEmail: (vals.userEmail||'').trim(),
+      userPassword: (vals.userPassword||'').trim(),
+      offlineMode: vals.offlineMode === true,
+    };
     applyProfileGate(cachedProfile);
-    if (!cachedProfile.userEmail || !cachedProfile.userPassword) {
+    if (!cachedProfile.offlineMode && (!cachedProfile.userEmail || !cachedProfile.userPassword)) {
       showStatus('Informe email e senha para começar.');
       return;
     }
@@ -645,7 +655,7 @@ function refresh() {
       const displayLogs = [...logs];
       if (currentTask && !currentTask.endedAt) displayLogs.unshift(currentTask);
       renderLogs(displayLogs);
-      loadTodayTasks();
+      if (!cachedProfile.offlineMode) loadTodayTasks();
     });
   });
 }
@@ -735,9 +745,20 @@ if (saveProfilePopupBtn) {
     const email = (profileEmailInput?.value || '').trim();
     const password = (profilePasswordInput?.value || '').trim();
     if (!email || !password) { alert('Informe email e senha.'); return; }
-    chrome.storage.local.set({ userEmail: email, userPassword: password }, () => {
-      applyProfileGate({ userEmail: email, userPassword: password });
+    chrome.storage.local.set({ userEmail: email, userPassword: password, offlineMode: false }, () => {
+      applyProfileGate({ userEmail: email, userPassword: password, offlineMode: false });
       showStatus('Perfil salvo.');
+      refresh();
+    });
+  });
+}
+
+if (useOfflinePopupBtn) {
+  useOfflinePopupBtn.addEventListener('click', () => {
+    chrome.storage.local.set({ offlineMode: true, heyToken: null, heyTokenEmail: null }, () => {
+      cachedProfile = { ...cachedProfile, offlineMode: true };
+      applyProfileGate(cachedProfile);
+      showStatus('Modo offline ativo. Nenhuma request será realizada.');
       refresh();
     });
   });

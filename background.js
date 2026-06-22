@@ -3,6 +3,7 @@ const STORAGE_KEYS = {
   LOGS: "logs",
   USER_EMAIL: "userEmail",
   USER_PASSWORD: "userPassword",
+  OFFLINE_MODE: "offlineMode",
   HEY_TOKEN: "heyToken",
   HEY_TOKEN_EMAIL: "heyTokenEmail",
 };
@@ -15,6 +16,16 @@ async function getStorage(keys) {
 
 async function setStorage(obj) {
   return new Promise((resolve) => chrome.storage.local.set(obj, resolve));
+}
+
+async function isOfflineMode() {
+  const { [STORAGE_KEYS.OFFLINE_MODE]: offlineMode } = await getStorage([STORAGE_KEYS.OFFLINE_MODE]);
+  return offlineMode === true;
+}
+
+async function heyGestorFetch(endpoint, options) {
+  if (await isOfflineMode()) throw new Error("Modo offline ativo.");
+  return fetch(endpoint, options);
 }
 
 function nowISO() {
@@ -163,7 +174,7 @@ async function loginHeyGestor(baseUrl) {
   }
 
   const endpoint = `${sanitizeBaseUrl(baseUrl)}/auth/login`;
-  const response = await fetch(endpoint, {
+  const response = await heyGestorFetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -202,7 +213,7 @@ async function ensureHeyGestorToken() {
   }
 
   try {
-    const response = await fetch(`${HEYGESTOR_DEFAULT_BASE_URL}/me`, {
+    const response = await heyGestorFetch(`${HEYGESTOR_DEFAULT_BASE_URL}/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) throw new Error("Token invalido");
@@ -221,7 +232,7 @@ async function fetchPendingTasksForToday() {
   const { token } = await ensureHeyGestorToken();
   const today = formatDateYMD(new Date());
   const endpoint = `${sanitizeBaseUrl(HEYGESTOR_DEFAULT_BASE_URL)}/tasks/pending?from=${today}&to=${today}`;
-  const response = await fetch(endpoint, {
+  const response = await heyGestorFetch(endpoint, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -244,7 +255,7 @@ async function fetchPendingTasksForToday() {
 async function fetchHeyGestorProjects() {
   const { token } = await ensureHeyGestorToken();
   const endpoint = `${sanitizeBaseUrl(HEYGESTOR_DEFAULT_BASE_URL)}/projects`;
-  const response = await fetch(endpoint, {
+  const response = await heyGestorFetch(endpoint, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -331,7 +342,7 @@ async function createHeyGestorWorkLog(log, { placeholder = false } = {}) {
   const payload = buildHeyGestorWorkLogPayload(log, projectId, { placeholder });
   const endpoint = `${sanitizeBaseUrl(HEYGESTOR_DEFAULT_BASE_URL)}/work-logs`;
 
-  const response = await fetch(endpoint, {
+  const response = await heyGestorFetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -364,7 +375,7 @@ async function updateHeyGestorWorkLog(log) {
   const payload = buildHeyGestorWorkLogPayload(log, projectId);
   const endpoint = `${sanitizeBaseUrl(HEYGESTOR_DEFAULT_BASE_URL)}/work-logs/${log.heyGestorWorkLogId}`;
 
-  const response = await fetch(endpoint, {
+  const response = await heyGestorFetch(endpoint, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -413,6 +424,13 @@ async function startTask(item) {
   const current = buildCurrentTask(item);
   await setStorage({ [STORAGE_KEYS.CURRENT]: current });
 
+  if (await isOfflineMode()) {
+    return {
+      current,
+      sync: { ok: true, sentCount: 0, pendingCount: 0, error: "" },
+    };
+  }
+
   try {
     const synced = await ensureCurrentTaskRemoteWorkLog(current);
     return {
@@ -450,6 +468,15 @@ async function finalizeCurrentTask(endAtIso) {
   let storedLog = finished;
   let sync = { ok: false, sentCount: 0, pendingCount: 0, error: "" };
 
+  if (await isOfflineMode()) {
+    logs.push(storedLog);
+    await setStorage({ [STORAGE_KEYS.CURRENT]: null, [STORAGE_KEYS.LOGS]: logs });
+    return {
+      stopped: current,
+      sync: { ok: true, sentCount: 0, pendingCount: countPendingEndedLogs(logs), error: "" },
+    };
+  }
+
   try {
     storedLog = await syncSingleEndedLog(finished);
     sync = { ok: true, sentCount: 1, pendingCount: countPendingEndedLogs(logs), error: "" };
@@ -481,6 +508,15 @@ async function pushLogsToHeyGestor() {
 }
 
 async function syncPendingLogsToHeyGestor({ allowEmpty = true } = {}) {
+  if (await isOfflineMode()) {
+    const pending = await getPendingLogsForHeyGestor();
+    return {
+      ok: allowEmpty,
+      sentCount: 0,
+      pendingCount: pending.length,
+      error: allowEmpty ? "" : "Modo offline ativo.",
+    };
+  }
   const { [STORAGE_KEYS.LOGS]: logsRaw } = await getStorage([STORAGE_KEYS.LOGS]);
   const logs = Array.isArray(logsRaw) ? [...logsRaw] : [];
   const pendingEntries = logs
@@ -549,13 +585,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
       if (msg?.type === "startOrStopForItem") {
-        const { [STORAGE_KEYS.USER_EMAIL]: userEmail, [STORAGE_KEYS.USER_PASSWORD]: userPassword } = await getStorage([
+        const {
+          [STORAGE_KEYS.USER_EMAIL]: userEmail,
+          [STORAGE_KEYS.USER_PASSWORD]: userPassword,
+          [STORAGE_KEYS.OFFLINE_MODE]: offlineMode,
+        } = await getStorage([
           STORAGE_KEYS.USER_EMAIL,
           STORAGE_KEYS.USER_PASSWORD,
+          STORAGE_KEYS.OFFLINE_MODE,
         ]);
         const emailOk = Boolean(String(userEmail || "").trim());
         const passOk = Boolean(String(userPassword || "").trim());
-        if (!emailOk || !passOk) {
+        if (offlineMode !== true && (!emailOk || !passOk)) {
           sendResponse({ ok: false, error: "Perfil ausente: informe email e senha nas opcoes." });
           return;
         }
@@ -607,6 +648,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
 
       if (msg?.type === "getPendingTasksToday") {
+        if (await isOfflineMode()) {
+          sendResponse({ ok: true, rows: [], offline: true });
+          return;
+        }
         const rows = await fetchPendingTasksForToday();
         sendResponse({ ok: true, rows });
         return;
