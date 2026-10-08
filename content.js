@@ -4,16 +4,25 @@
   const GLPI_FLOATING_CONTAINER_ID = "azdo-tt-glpi-floating";
 
   let currentContext = null;
+  let injectionTimer;
 
   const observer = new MutationObserver(() => {
-    tryInject();
+    clearTimeout(injectionTimer);
+    injectionTimer = setTimeout(tryInject, 200);
   });
 
-  observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
+  observer.observe(document.documentElement || document.body, { childList: true, subtree: true, characterData: true });
+  tryInject();
+  window.addEventListener("hashchange", tryInject);
+  window.addEventListener("popstate", tryInject);
 
   function tryInject() {
     const context = getInjectionContext();
-    if (!context) return;
+    if (!context) {
+      currentContext = null;
+      document.getElementById(BUTTON_ID)?.remove();
+      return;
+    }
 
     currentContext = context;
 
@@ -32,9 +41,9 @@
   }
 
   function onClick() {
-    const item = currentContext?.extractItem();
+    const item = getInjectionContext()?.extractItem();
     if (!item) {
-      toast("Nao foi possivel identificar o Work Item.", "error");
+      toast("Nao foi possivel identificar a atividade ou incidente.", "error");
       return;
     }
 
@@ -57,6 +66,17 @@
   }
 
   function getInjectionContext() {
+    if (/\/smartit(?:\/|$)/i.test(location.pathname)) {
+      if (!extractHelixIncident()) return null;
+      let anchor = document.getElementById("helix-tt-floating");
+      if (!anchor) {
+        anchor = document.createElement("div");
+        anchor.id = "helix-tt-floating";
+        Object.assign(anchor.style, { position: "fixed", bottom: "16px", right: "16px", zIndex: "2147483647" });
+        document.body.appendChild(anchor);
+      }
+      return { anchor, extractItem: extractHelixIncident };
+    }
     const azureHeader = document.querySelector(".work-item-form-header");
     if (azureHeader) {
       const anchorContainer = azureHeader.querySelector("#jibble-button")?.parentElement
@@ -94,6 +114,64 @@
 
     const projectName = extractProjectName(url);
     return { id, title, url, projectName, captureType: "azure_devops" };
+  }
+
+  function helixText(element) {
+    if (!element || element.closest('#helix-tt-floating, .azdo-tt-toast-container, script, style')) return "";
+    return String(element.value ?? element.innerText ?? element.textContent ?? "").trim();
+  }
+
+  function helixLabel(value) {
+    return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[:*\s]+$/g, "").trim().toLowerCase();
+  }
+
+  function helixField(labels) {
+    const normalized = labels.map(helixLabel);
+    const elements = Array.from(document.querySelectorAll("body *"));
+    for (const label of labels) {
+      const target = helixLabel(label);
+      for (const element of elements) {
+        // Prefer explicit form associations and accessibility labels.
+        if ([element.getAttribute("aria-label"), element.getAttribute("placeholder")].some(value => value && helixLabel(value) === target)) {
+          const value = helixText(element);
+          if (value) return value;
+        }
+        if (helixLabel(helixText(element)) !== target) continue;
+        const linked = element.htmlFor ? document.getElementById(element.htmlFor) : null;
+        const accessible = element.id ? elements.find(candidate => (candidate.getAttribute("aria-labelledby") || "").split(/\s+/).includes(element.id)) : null;
+        const candidates = [linked, accessible, element.querySelector("input, textarea, [contenteditable='true']"), element.nextElementSibling];
+        if (element.parentElement && element.parentElement !== document.body) {
+          candidates.push(element.parentElement.querySelector("input, textarea, [contenteditable='true']"));
+          if (element.parentElement.children.length === 1) candidates.push(element.parentElement.nextElementSibling);
+        }
+        for (const candidate of candidates) {
+          const value = helixText(candidate);
+          if (value && !normalized.includes(helixLabel(value))) return value;
+        }
+      }
+    }
+    return "";
+  }
+
+  function extractHelixIncident() {
+    // A list with several incident IDs is not an incident detail page.
+    const preferred = helixField(["Incident Number", "Incident ID", "Numero do Incidente"]);
+    const headingText = Array.from(document.querySelectorAll("h1, h2, [role='heading']")).map(helixText).join(" ");
+    const headingIds = [...new Set(headingText.match(/INC\d+/g) || [])];
+    const pageIds = [...new Set(Array.from(document.querySelectorAll("body *"))
+      .filter(element => element.children.length === 0)
+      .flatMap(element => helixText(element).match(/INC\d+/g) || []))];
+    const incident_number = preferred.match(/INC\d+/)?.[0]
+      || (headingIds.length === 1 ? headingIds[0] : pageIds.length === 1 ? pageIds[0] : "");
+    if (!incident_number) return null;
+    const creation_date = helixField(["Created Date", "Submit Date", "Reported Date", "Data de Criação"]);
+    const description = helixField(["Detailed Description", "Issue Description", "Description", "Resumo do Problema"]);
+    const summary = helixField(["Summary", "Resumo", "Title"]);
+    return {
+      id: incident_number, incident_number, creation_date, description,
+      title: `Incidente: ${summary || incident_number}`,
+      url: location.href, projectName: "ITSM Helix", captureType: "helix",
+    };
   }
 
   function isGlpiTicketPage() {

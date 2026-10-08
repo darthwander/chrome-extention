@@ -264,6 +264,8 @@ function startLogAgain(log) {
     id: isManualMeetingTask(log) ? `${MANUAL_MEETING_CAPTURE_TYPE}-${Date.now()}` : log.id,
     title: log.title,
     description: log.description || log.title,
+    incident_number: log.incident_number || '',
+    creation_date: log.creation_date || '',
     url: log.url,
     projectName: log.projectName,
     captureType: log.captureType,
@@ -430,7 +432,7 @@ function extractRowsFromSheet(xmlText) {
 
   const headerValues = readRow(headerRow);
   const columnIndexes = {};
-  Object.entries(REQUIRED_COLUMNS).forEach(([key, title]) => {
+  Object.entries({ ...REQUIRED_COLUMNS, incident_number: 'Incidente', creation_date: 'Data de Criacao', description: 'Descricao' }).forEach(([key, title]) => {
     for (const [colIdx, val] of headerValues.entries()) {
       if ((val || '').trim() === title) {
         columnIndexes[key] = colIdx;
@@ -497,6 +499,9 @@ function findOverlapWithExisting(imported, existing) {
 function sanitizeImportedRows(rawRows) {
   return rawRows.map((row) => ({
     id: String(row.id || '').trim(),
+    incident_number: String(row.incident_number || '').trim(),
+    creation_date: String(row.creation_date || '').trim(),
+    description: String(row.description || '').trim(),
     title: String(row.title || '').trim(),
     projectName: String(row.projectName || '').trim(),
     captureType: String(row.captureType || '').trim(),
@@ -594,6 +599,9 @@ async function handleImportSubmit(event) {
 
 function normalizeExportRow(row) {
   return {
+    incident_number: row.incident_number ?? '',
+    creation_date: row.creation_date ?? '',
+    description: row.description ?? '',
     id: row.id ?? '',
     title: row.title ?? '',
     projectName: row.projectName ?? '',

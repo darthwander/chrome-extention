@@ -4,7 +4,7 @@ Extensao Chrome para rastrear tempo em itens de trabalho, centralizar os registr
 
 ## O que a extensao faz
 
-- Injeta o botao `Track time` em paginas suportadas do Azure DevOps e do GLPI.
+- Injeta o botao `Track time` em paginas suportadas do Azure DevOps, GLPI e BMC Helix Smart IT.
 - Mantem apenas uma tarefa em andamento por vez.
 - Salva historico e estado atual em `chrome.storage.local`.
 - Cria e atualiza work logs no HeyGestor automaticamente.
@@ -27,6 +27,16 @@ Extensao Chrome para rastrear tempo em itens de trabalho, centralizar os registr
 - Suporta paginas como `ticket.form.php`, `change.form.php` e outros formularios em `/front/*.form.php`.
 - Tenta identificar o item atual pelo `id`, titulo da pagina e tipo da entidade.
 - Prefixa os titulos com o tipo identificado, como `Incidente`, `Problema` e `Mudanca`.
+
+### BMC Helix Smart IT
+
+- Detecta incidentes em caminhos `/smartit/` e `/SmartIT/`, incluindo navegacao dinamica.
+- Captura `incident_number` com `INC\d+`, `creation_date` pelos rotulos Created Date, Submit Date, Reported Date ou Data de Criação, e `description` pelos rotulos Detailed Description, Issue Description, Description ou Resumo do Problema.
+- Mantem a descricao completa e a data de criacao como texto, sem presumir formato ou fuso horario. Campos ausentes ficam vazios.
+- Usa o numero do incidente como ID, a origem `helix` e o projeto `ITSM Helix`. O botao flutuante inicia/encerra o tempo pelo fluxo existente.
+- Preserva os campos no historico, ao reiniciar registros e na importacao/exportacao JSON e XLSX. As novas colunas XLSX sao opcionais na importacao de arquivos antigos.
+- Para sincronizar, o HeyGestor precisa ter um projeto com o nome `ITSM Helix`.
+- Se sua instalacao usa outro caminho, ajuste os matches do manifest e a deteccao em content.js. A captura depende dos campos presentes na DOM; nao acessa conteudo de iframes externos ou shadow roots fechados.
 
 ### HeyGestor
 
@@ -112,7 +122,7 @@ O formato `JSON` exporta `rows` com a mesma estrutura base usada pela extensao.
 
 - `storage`: salva credenciais, tarefa atual e historico local.
 - `activeTab`: interacao com a aba ativa.
-- `host_permissions`: `https://dev.azure.com/*`, `https://*.visualstudio.com/*`, `*://*/glpi/*`, `*://*/front/*.form.php*`, `http://localhost:8000/*` e `https://heygestor.on-forge.com/*`.
+- `host_permissions`: `https://dev.azure.com/*`, `https://*.visualstudio.com/*`, `*://*/smartit/*`, `*://*/SmartIT/*`, `*://*/glpi/*`, `*://*/front/*.form.php*`, `http://localhost:8000/*` e `https://heygestor.on-forge.com/*`.
 
 ## Arquivos principais
 

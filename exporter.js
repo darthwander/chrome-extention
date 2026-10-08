@@ -68,6 +68,9 @@
       { key: 'endedAt', title: 'Fim' },
       { key: 'durationSeconds', title: 'Duração (s)', numeric: true },
       { key: 'url', title: 'URL' },
+      { key: 'incident_number', title: 'Incidente' },
+      { key: 'creation_date', title: 'Data de Criacao' },
+      { key: 'description', title: 'Descricao' },
     ];
 
     const headerRowIndex = 2;

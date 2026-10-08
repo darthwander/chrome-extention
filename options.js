@@ -4,6 +4,7 @@ const PROJECT_COLORS = ['#bf5a36', '#2f855a', '#c6842f', '#4c6baf', '#8a4f7d', '
 const ORIGIN_META = {
   azure_devops: { label: 'Azure DevOps' },
   glpi: { label: 'GLPI' },
+  helix: { label: 'ITSM Helix' },
   outros: { label: 'Outros' },
 };
 
@@ -748,6 +749,9 @@ function renderActivitySummary() {
 
 function normalizeExportRow(row) {
   return {
+    incident_number: row.incident_number ?? '',
+    creation_date: row.creation_date ?? '',
+    description: row.description ?? '',
     id: row.id ?? '',
     title: row.title ?? '',
     projectName: row.projectName ?? '',
